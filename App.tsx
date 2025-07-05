@@ -1,5 +1,8 @@
 
 
+
+
+
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
 import { INITIAL_PLAYERS_DATA, REQUIRED_PLAYERS_TOTAL, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS, TEAM_SIZE } from './constants';
@@ -10,6 +13,7 @@ import StarRating from './components/StarRating';
 import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
 import { supabase } from './lib/supabaseClient'; // Import Supabase client
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 
 // Helper function for Fisher-Yates Shuffle
 function fisherYatesShuffle<T>(array: T[]): T[] {
@@ -185,11 +189,11 @@ const App: React.FC = () => {
       setIsLoading(false);
     };
     
-    // Check if Supabase is configured before fetching
-    if(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+    // Check if Supabase is configured in config.ts before fetching
+    if(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
         fetchAndMaybeSeedPlayers();
     } else {
-        showFlashNotification('error', 'Supabase not configured. Player data will not be saved.');
+        showFlashNotification('error', 'Supabase not configured. Please update config.ts. Player data will not be saved.');
         setIsLoading(false);
     }
   }, []); 
@@ -497,7 +501,19 @@ const App: React.FC = () => {
       });
     });
     
-    const updatedPlayerRecords = Array.from(playerUpdates.entries()).map(([id, stats]) => ({ id, ...stats }));
+    const updatedPlayerRecords = players.map(player => {
+      const updatedStats = playerUpdates.get(player.id)!;
+      return {
+        id: player.id,
+        name: player.name,
+        rating: player.rating,
+        positions: player.positions,
+        wins: updatedStats.wins,
+        losses: updatedStats.losses,
+        goals: updatedStats.goals,
+        assists: updatedStats.assists,
+      };
+    });
     const { error } = await supabase.from('players').upsert(updatedPlayerRecords);
 
     if (error) {

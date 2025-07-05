@@ -1,4 +1,3 @@
-import { PlayerPosition } from '../types';
 
 export type Json =
   | string
@@ -17,7 +16,7 @@ export interface Database {
           created_at: string;
           name: string;
           rating: number;
-          positions: PlayerPosition[];
+          positions: string[];
           wins: number;
           losses: number;
           goals: number;
@@ -28,7 +27,7 @@ export interface Database {
           created_at?: string;
           name: string;
           rating: number;
-          positions: PlayerPosition[];
+          positions: string[];
           wins?: number;
           losses?: number;
           goals?: number;
@@ -39,7 +38,7 @@ export interface Database {
           created_at?: string;
           name?: string;
           rating?: number;
-          positions?: PlayerPosition[];
+          positions?: string[];
           wins?: number;
           losses?: number;
           goals?: number;
