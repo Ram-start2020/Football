@@ -9,23 +9,19 @@ const calculateAverageRating = (players: PlayerInTeam[]): string => {
 };
 
 const TeamCard: React.FC<TeamCardProps> = ({ team }) => {
-  const teamColorClasses: Record<string, string> = {
-    'Team Alpha': 'border-sky-500',
-    'Team Bravo': 'border-slate-300',
-    'Team Charlie': 'border-amber-500',
+  const teamStyles: Record<string, { border: string; bg: string; text: string }> = {
+    'Team Alpha': { border: 'border-sky-500', bg: 'bg-sky-600', text: 'text-white' },
+    'Team Bravo': { border: 'border-slate-200', bg: 'bg-slate-200', text: 'text-slate-900' },
+    'Team Charlie': { border: 'border-yellow-500', bg: 'bg-yellow-500', text: 'text-slate-900' },
   };
 
-  const teamHeaderColorClasses: Record<string, string> = {
-    'Team Alpha': 'bg-sky-600',
-    'Team Bravo': 'bg-slate-500',
-    'Team Charlie': 'bg-amber-600',
-  };
+  const currentStyle = teamStyles[team.name] || { border: 'border-slate-700', bg: 'bg-slate-700', text: 'text-white' };
 
   return (
-    <div className={`bg-slate-800 rounded-lg shadow-xl overflow-hidden border-t-2 ${teamColorClasses[team.name] || 'border-slate-700'}`}>
-      <div className={`p-2 ${teamHeaderColorClasses[team.name] || 'bg-slate-700'}`}>
-        <h3 className="text-base font-bold text-white text-center truncate">{team.name}</h3>
-        <p className="text-xs text-center text-slate-200">Avg. Rating: {calculateAverageRating(team.players)}</p>
+    <div className={`bg-slate-800 rounded-lg shadow-xl overflow-hidden border-t-2 ${currentStyle.border}`}>
+      <div className={`p-2 ${currentStyle.bg}`}>
+        <h3 className={`text-base font-bold text-center truncate ${currentStyle.text}`}>{team.name}</h3>
+        <p className={`text-xs text-center ${currentStyle.text} opacity-80`}>Avg. Rating: {calculateAverageRating(team.players)}</p>
       </div>
       
       <div className="p-1 bg-slate-800/40"> 

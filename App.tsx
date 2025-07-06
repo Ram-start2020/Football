@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
 import { INITIAL_PLAYERS_DATA, REQUIRED_PLAYERS_TOTAL, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS, TEAM_SIZE } from './constants';
@@ -705,8 +698,11 @@ const App: React.FC = () => {
         <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary')}>
           Add New Player
         </button>
-        <button onClick={() => setIsSettingsModalOpen(true)} className={getButtonClass('neutral')} title="Open Settings">
-            Settings
+        <button onClick={() => setIsSettingsModalOpen(true)} className={getButtonClass('neutral') + ' flex justify-center items-center'} title="Open Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.438.995s.145.755.438.995l1.003.827c.48.398.668 1.05.26 1.431l-1.296 2.247a1.125 1.125 0 01-1.37-.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.333.183-.582.495-.645.87l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.282c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.37-.49l-1.296-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.437-.995s-.145-.755-.437-.995l-1.004-.827a1.125 1.125 0 01-.26-1.431l1.296-2.247a1.125 1.125 0 011.37.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.645-.87l.213-1.281z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
         </button>
 
         {teams.length === 0 && (
