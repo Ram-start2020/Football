@@ -11,13 +11,13 @@ const calculateAverageRating = (players: PlayerInTeam[]): string => {
 const TeamCard: React.FC<TeamCardProps> = ({ team }) => {
   const teamColorClasses: Record<string, string> = {
     'Team Alpha': 'border-sky-500',
-    'Team Bravo': 'border-emerald-500',
+    'Team Bravo': 'border-slate-300',
     'Team Charlie': 'border-amber-500',
   };
 
   const teamHeaderColorClasses: Record<string, string> = {
     'Team Alpha': 'bg-sky-600',
-    'Team Bravo': 'bg-emerald-600',
+    'Team Bravo': 'bg-slate-500',
     'Team Charlie': 'bg-amber-600',
   };
 
