@@ -1,6 +1,6 @@
 {
-  "name": "Football Team Balancer",
-  "description": "An application to manage football players, generate balanced teams based on ratings and positions, and track game wins/losses.",
+  "name": "Soccer Team Balancer",
+  "description": "An application to manage soccer players, generate balanced teams based on ratings and positions, and track game wins/losses.",
   "requestFramePermissions": [],
   "prompt": ""
 }

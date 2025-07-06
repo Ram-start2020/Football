@@ -1,3 +1,8 @@
+
+
+
+
+
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
 import { INITIAL_PLAYERS_DATA, REQUIRED_PLAYERS_TOTAL, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS, TEAM_SIZE } from './constants';
@@ -7,7 +12,6 @@ import MatchPlayCard from './components/MatchPlayCard';
 import StarRating from './components/StarRating';
 import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
-import SettingsModal, { ClearDataOptions } from './components/SettingsModal';
 import { supabase } from './lib/supabaseClient'; // Import Supabase client
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 
@@ -125,7 +129,6 @@ const App: React.FC = () => {
 
   const [isManualEditModalOpen, setIsManualEditModalOpen] = useState(false);
   const [initialTeamsForManualEdit, setInitialTeamsForManualEdit] = useState<Team[]>([]);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -580,42 +583,6 @@ const App: React.FC = () => {
     showFlashNotification('success', 'Teams manually set and confirmed!');
   };
 
-  const handleClearData = async (options: ClearDataOptions) => {
-    if (options.all) {
-      // Delete all players
-      const { error } = await supabase.from('players').delete().gt('rating', -1);
-      if (error) {
-        showFlashNotification('error', `Failed to clear all data: ${error.message}`);
-      } else {
-        setPlayers([]);
-        showFlashNotification('success', 'All player data has been cleared.');
-      }
-    } else {
-      const updates: Partial<Omit<Player, 'id' | 'name' | 'positions'>> = {};
-      if (options.records) { // wins/losses
-        updates.wins = 0;
-        updates.losses = 0;
-      }
-      if (options.stats) { // goals/assists
-        updates.goals = 0;
-        updates.assists = 0;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        const { error } = await supabase.from('players').update(updates).gt('rating', -1);
-        if (error) {
-          showFlashNotification('error', `Failed to clear data: ${error.message}`);
-        } else {
-          setPlayers(prevPlayers => 
-            prevPlayers.map(player => ({...player, ...updates}))
-          );
-          showFlashNotification('success', 'Selected player data has been cleared.');
-        }
-      }
-    }
-    setIsSettingsModalOpen(false);
-  };
-
 
   const sortedPlayers = [...players].sort((a,b) => a.name.localeCompare(b.name));
 
@@ -652,7 +619,7 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
         <div className="flex flex-col justify-center items-center min-h-screen bg-slate-900 text-slate-100">
-            <h1 className="text-4xl font-bold text-sky-400 mb-4 animate-pulse">Football Team Balancer</h1>
+            <h1 className="text-4xl font-bold text-sky-400 mb-4 animate-pulse">Soccer Team Balancer</h1>
             <p className="text-lg text-slate-400">Loading player data...</p>
         </div>
     );
@@ -690,19 +657,13 @@ const App: React.FC = () => {
       `}</style>
 
       <header className="mb-8 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold text-sky-400">Football Team Balancer</h1>
+        <h1 className="text-4xl md:text-5xl font-bold text-sky-400">Soccer Team Balancer</h1>
         <p className="text-slate-400 mt-2 text-lg">Manage players, generate fair teams, and track your game day stats!</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
         <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary')}>
           Add New Player
-        </button>
-        <button onClick={() => setIsSettingsModalOpen(true)} className={getButtonClass('neutral') + ' flex justify-center items-center'} title="Open Settings">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.438.995s.145.755.438.995l1.003.827c.48.398.668 1.05.26 1.431l-1.296 2.247a1.125 1.125 0 01-1.37-.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.333.183-.582.495-.645.87l-.213 1.28c-.09.543-.56.941-1.11.941h-1.094c-.55 0-1.02-.398-1.11-.94l-.213-1.282c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.37-.49l-1.296-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.437-.995s-.145-.755-.437-.995l-1.004-.827a1.125 1.125 0 01-.26-1.431l1.296-2.247a1.125 1.125 0 011.37.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.645-.87l.213-1.281z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
         </button>
 
         {teams.length === 0 && (
@@ -788,12 +749,6 @@ const App: React.FC = () => {
           teamNames={TEAM_NAMES}
         />
       )}
-
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        onConfirm={handleClearData}
-      />
 
 
       {teams.length > 0 && (
@@ -978,7 +933,7 @@ const App: React.FC = () => {
       </section>
 
       <footer className="mt-12 pt-8 border-t border-slate-700 text-center">
-        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Football Team Balancer. App Version 3.4 - Now with Supabase!</p>
+        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.4 - Now with Supabase!</p>
       </footer>
     </div>
   );
