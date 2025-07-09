@@ -1,9 +1,7 @@
 
 
-
-
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Session } from '@supabase/supabase-js';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
 import { INITIAL_PLAYERS_DATA, REQUIRED_PLAYERS_TOTAL, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS, TEAM_SIZE } from './constants';
 import PlayerFormModal from './components/PlayerFormModal';
@@ -12,7 +10,8 @@ import MatchPlayCard from './components/MatchPlayCard';
 import StarRating from './components/StarRating';
 import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
-import { supabase } from './lib/supabaseClient'; // Import Supabase client
+import AuthModal from './components/AuthModal';
+import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 
 // Helper function for Fisher-Yates Shuffle
@@ -131,6 +130,9 @@ const App: React.FC = () => {
   const [initialTeamsForManualEdit, setInitialTeamsForManualEdit] = useState<Team[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const isAdmin = !!session;
 
   const participatingPlayerCount = useMemo(() => {
     return players.filter(p => p.isIncludedInDraft).length;
@@ -152,6 +154,22 @@ const App: React.FC = () => {
   }, [notification]);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (_event === 'SIGNED_IN') {
+        setShowAuthModal(false);
+        showFlashNotification('success', `Welcome, ${session?.user.email}!`);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     const fetchAndMaybeSeedPlayers = async () => {
       setIsLoading(true);
       const { data, error } = await supabase.from('players').select('*').order('name', { ascending: true });
@@ -166,7 +184,6 @@ const App: React.FC = () => {
         setPlayers(data.map(p => ({
             ...p, 
             isIncludedInDraft: true, 
-            // Ensure positions is always an array
             positions: Array.isArray(p.positions) ? p.positions as PlayerPosition[] : [PlayerPosition.MID],
         })));
       } else {
@@ -189,7 +206,6 @@ const App: React.FC = () => {
       setIsLoading(false);
     };
     
-    // Check if Supabase is configured in config.ts before fetching
     if(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
         fetchAndMaybeSeedPlayers();
     } else {
@@ -214,6 +230,10 @@ const App: React.FC = () => {
   };
   
   const handleSavePlayerFromModal = useCallback(async (playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists'>, editingId?: string) => {
+    if (!isAdmin) {
+      showFlashNotification('error', 'Admin login required to save players.');
+      return;
+    }
     const playerRecord = {
         name: playerData.name.trim(),
         rating: playerData.rating,
@@ -244,9 +264,13 @@ const App: React.FC = () => {
       }
     }
     handleModalClose();
-  }, [players]);
+  }, [players, isAdmin]);
   
   const handleDeletePlayer = useCallback(async (playerId: string) => {
+    if (!isAdmin) {
+      showFlashNotification('error', 'Admin login required to delete players.');
+      return;
+    }
     if (teams.length > 0) {
       showFlashNotification('error', "Cannot delete players while teams are formed/confirmed. Clear teams first.");
       return;
@@ -258,7 +282,7 @@ const App: React.FC = () => {
         setPlayers(prevPlayers => prevPlayers.filter(p => p.id !== playerId));
         showFlashNotification('info', "Player removed from roster.");
     }
-  }, [teams]);
+  }, [teams, isAdmin]);
 
   const handleTogglePlayerDraftInclusion = useCallback((playerId: string) => {
     if (teams.length > 0) {
@@ -458,6 +482,10 @@ const App: React.FC = () => {
 
 
   const handleFinalizeGameDay = useCallback(async () => {
+    if (!isAdmin) {
+      showFlashNotification('error', 'Admin login required to finalize game day.');
+      return;
+    }
     if (matches.length === 0) {
         showFlashNotification('error', 'No matches to finalize. Please add at least one match.');
         return;
@@ -528,7 +556,7 @@ const App: React.FC = () => {
 
     setAllMatchesFinalized(true);
     showFlashNotification('success', 'Game day finalized! Player stats updated.');
-  }, [matches, teams, players]);
+  }, [matches, teams, players, isAdmin]);
 
   const clearTeamsAndMatches = useCallback(() => {
     setTeams([]);
@@ -582,7 +610,15 @@ const App: React.FC = () => {
     setIsManualEditModalOpen(false);
     showFlashNotification('success', 'Teams manually set and confirmed!');
   };
-
+  
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    clearTeamsAndMatches();
+    showFlashNotification('info', 'You have been logged out.');
+  };
+  
+  const handleOpenLoginModal = () => setShowAuthModal(true);
 
   const sortedPlayers = [...players].sort((a,b) => a.name.localeCompare(b.name));
 
@@ -656,13 +692,27 @@ const App: React.FC = () => {
         .draft-checkbox { width: 1.15rem; height: 1.15rem; }
       `}</style>
 
-      <header className="mb-8 text-center">
+      <header className="mb-8 text-center relative">
+        <div className="absolute top-0 right-0 z-20">
+            {isAdmin ? (
+                <div className="flex items-center space-x-3 bg-slate-800/50 p-2 rounded-lg">
+                    <span className="text-sm text-slate-300 hidden sm:block">{session.user.email}</span>
+                    <button onClick={handleLogout} className="px-3 py-1.5 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded-md transition">
+                        Logout
+                    </button>
+                </div>
+            ) : (
+                <button onClick={handleOpenLoginModal} className="px-4 py-2 text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-lg shadow-md transition transform hover:scale-105">
+                    Admin Login
+                </button>
+            )}
+        </div>
         <h1 className="text-4xl md:text-5xl font-bold text-sky-400">Soccer Team Balancer</h1>
         <p className="text-slate-400 mt-2 text-lg">Manage players, generate fair teams, and track your game day stats!</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-        <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary')}>
+        <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary', !isAdmin)} disabled={!isAdmin} title={!isAdmin ? 'Admin login required' : 'Add a new player'}>
           Add New Player
         </button>
 
@@ -715,9 +765,9 @@ const App: React.FC = () => {
         {teamsConfirmed && !allMatchesFinalized && (
            <button 
             onClick={handleFinalizeGameDay} 
-            className={getButtonClass('info', matches.length === 0)}
-            disabled={matches.length === 0}
-            title={matches.length === 0 ? "Add matches first" : "Finalize and update stats"}
+            className={getButtonClass('info', matches.length === 0 || !isAdmin)}
+            disabled={matches.length === 0 || !isAdmin}
+            title={!isAdmin ? "Admin login required" : matches.length === 0 ? "Add matches first" : "Finalize and update stats"}
             >
              Finalize Game Day
            </button>
@@ -729,6 +779,8 @@ const App: React.FC = () => {
            </button>
         )}
       </div>
+      
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       <PlayerFormModal 
         isOpen={showPlayerForm} 
@@ -906,18 +958,18 @@ const App: React.FC = () => {
                       <div className="flex justify-end space-x-2">
                          <button
                             onClick={() => handleOpenEditPlayerModal(player)}
-                            className={getButtonClass('edit', teams.length > 0, 'small') + " action-button"}
-                            title={teams.length > 0 ? "Clear teams before editing" : "Edit player"}
-                            disabled={teams.length > 0}
+                            className={getButtonClass('edit', !isAdmin || teams.length > 0, 'small') + " action-button"}
+                            title={!isAdmin ? "Admin login required" : teams.length > 0 ? "Clear teams before editing" : "Edit player"}
+                            disabled={!isAdmin || teams.length > 0}
                             aria-label={`Edit player ${player.name}`}
                           >
                            Edit
                           </button>
                           <button
                             onClick={() => handleDeletePlayer(player.id)}
-                            className={getButtonClass('danger', teams.length > 0, 'small') + " action-button"}
-                            title={teams.length > 0 ? "Clear teams before deleting" : "Delete player"}
-                            disabled={teams.length > 0}
+                            className={getButtonClass('danger', !isAdmin || teams.length > 0, 'small') + " action-button"}
+                            title={!isAdmin ? "Admin login required" : teams.length > 0 ? "Clear teams before deleting" : "Delete player"}
+                            disabled={!isAdmin || teams.length > 0}
                             aria-label={`Delete player ${player.name}`}
                           >
                             Delete
@@ -933,7 +985,7 @@ const App: React.FC = () => {
       </section>
 
       <footer className="mt-12 pt-8 border-t border-slate-700 text-center">
-        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.4 - Now with Supabase!</p>
+        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.5 - Admin Controls</p>
       </footer>
     </div>
   );
