@@ -59,7 +59,7 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
       return;
     }
 
-    const playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists'> = {
+    const playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists' | 'gamesPlayed'> = {
       name: name.trim(),
       rating,
       positions: selectedPositions,

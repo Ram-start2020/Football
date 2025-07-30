@@ -21,7 +21,7 @@ export const TOTAL_POSITIONS_NEEDED: Record<PlayerPosition, number> = {
 
 export const TEAM_NAMES = ['Team Alpha', 'Team Bravo', 'Team Charlie'];
 
-export const INITIAL_PLAYERS_DATA: Omit<Player, 'id' | 'wins' | 'losses' | 'goals' | 'assists' | 'isIncludedInDraft'>[] = [
+export const INITIAL_PLAYERS_DATA: Omit<Player, 'id' | 'wins' | 'losses' | 'goals' | 'assists' | 'isIncludedInDraft' | 'gamesPlayed'>[] = [
   // Forwards (some versatile)
   { name: 'Alex "Striker" Johnson', rating: 5, positions: [PlayerPosition.FW] },
   { name: 'Ben "Goal" Miller', rating: 4, positions: [PlayerPosition.FW, PlayerPosition.MID] },

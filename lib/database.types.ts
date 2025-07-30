@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -21,6 +20,7 @@ export interface Database {
           losses: number;
           goals: number;
           assists: number;
+          games_played: number;
         };
         Insert: {
           id?: string;
@@ -32,6 +32,7 @@ export interface Database {
           losses?: number;
           goals?: number;
           assists?: number;
+          games_played?: number;
         };
         Update: {
           id?: string;
@@ -43,7 +44,9 @@ export interface Database {
           losses?: number;
           goals?: number;
           assists?: number;
+          games_played?: number;
         };
+        Relationships: [];
       };
     };
     Views: {

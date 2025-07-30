@@ -13,6 +13,7 @@ export interface Player {
   losses: number;
   goals: number;
   assists: number;
+  gamesPlayed: number;
   isIncludedInDraft?: boolean; // True if player is included in team generation
 }
 
@@ -32,7 +33,7 @@ export interface PlayerFormModalProps {
   onClose: () => void;
   // Callback for saving player data (handles both add and edit)
   // Omit 'id', 'wins', 'losses', 'goals', 'assists', 'isIncludedInDraft' as these are managed by App.tsx or not editable in form.
-  onSavePlayer: (playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists'>, editingId?: string) => void;
+  onSavePlayer: (playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists' | 'gamesPlayed'>, editingId?: string) => void;
   editingPlayer: Player | null; // Player object if editing, null if adding
   existingPlayerNames: string[];
 }

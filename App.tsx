@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
@@ -13,6 +12,10 @@ import ManualTeamEditorModal from './components/ManualTeamEditorModal';
 import AuthModal from './components/AuthModal';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
+import { Database } from './lib/database.types';
+
+type PlayerRow = Database['public']['Tables']['players']['Row'];
+type PlayerInsert = Database['public']['Tables']['players']['Insert'];
 
 // Helper function for Fisher-Yates Shuffle
 function fisherYatesShuffle<T>(array: T[]): T[] {
@@ -181,21 +184,22 @@ const App: React.FC = () => {
       }
       
       if (data && data.length > 0) {
-        setPlayers(data.map(p => ({
+        setPlayers((data as PlayerRow[]).map((p: PlayerRow) => ({
             ...p, 
+            gamesPlayed: p.games_played ?? 0,
             isIncludedInDraft: true, 
             positions: Array.isArray(p.positions) ? p.positions as PlayerPosition[] : [PlayerPosition.MID],
         })));
       } else {
         showFlashNotification('info', 'No players found. Seeding database with initial data...');
-        const { error: seedError } = await supabase.from('players').insert(INITIAL_PLAYERS_DATA);
+        const { error: seedError } = await (supabase.from('players') as any).insert(INITIAL_PLAYERS_DATA as PlayerInsert[]);
 
         if (seedError) {
             showFlashNotification('error', `Failed to seed database: ${seedError.message}`);
         } else {
             const { data: newData, error: newError } = await supabase.from('players').select('*').order('name', { ascending: true });
             if (newData) {
-                setPlayers(newData.map(p => ({...p, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
+                setPlayers((newData as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
                 showFlashNotification('success', 'Database seeded successfully!');
             }
             if (newError) {
@@ -229,7 +233,7 @@ const App: React.FC = () => {
     setEditingPlayer(null); 
   };
   
-  const handleSavePlayerFromModal = useCallback(async (playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists'>, editingId?: string) => {
+  const handleSavePlayerFromModal = useCallback(async (playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists' | 'gamesPlayed'>, editingId?: string) => {
     if (!isAdmin) {
       showFlashNotification('error', 'Admin login required to save players.');
       return;
@@ -241,24 +245,31 @@ const App: React.FC = () => {
     };
 
     if (editingId) { 
-      const { data, error } = await supabase.from('players').update(playerRecord).eq('id', editingId).select();
+      const { data, error } = await (supabase.from('players') as any).update(playerRecord).eq('id', editingId).select();
       if (error) {
           showFlashNotification('error', `Failed to update player: ${error.message}`);
           return;
       }
       if (data) {
-          const updatedPlayer = { ...data[0], isIncludedInDraft: players.find(p => p.id === editingId)?.isIncludedInDraft ?? true };
+          const updatedPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
+          const updatedPlayer: Player = { 
+            ...updatedPlayerFromDb, 
+            gamesPlayed: updatedPlayerFromDb.games_played ?? 0,
+            positions: updatedPlayerFromDb.positions as PlayerPosition[],
+            isIncludedInDraft: players.find(p => p.id === editingId)?.isIncludedInDraft ?? true 
+          };
           setPlayers(prev => prev.map(p => p.id === editingId ? updatedPlayer : p).sort((a,b) => a.name.localeCompare(b.name)));
           showFlashNotification('success', `${playerRecord.name} updated successfully.`);
       }
     } else { 
-      const { data, error } = await supabase.from('players').insert(playerRecord).select();
+      const { data, error } = await (supabase.from('players') as any).insert([playerRecord as PlayerInsert]).select();
       if (error) {
           showFlashNotification('error', `Failed to add player: ${error.message}`);
           return;
       }
       if (data) {
-          const newPlayer: Player = { ...data[0], isIncludedInDraft: true };
+          const newPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
+          const newPlayer: Player = { ...newPlayerFromDb, gamesPlayed: newPlayerFromDb.games_played ?? 0, positions: newPlayerFromDb.positions as PlayerPosition[], isIncludedInDraft: true };
           setPlayers(prev => [...prev, newPlayer].sort((a,b) => a.name.localeCompare(b.name)));
           showFlashNotification('success', `${newPlayer.name} added to the roster.`);
       }
@@ -491,8 +502,8 @@ const App: React.FC = () => {
         return;
     }
     
-    const playerUpdates = new Map<string, { wins: number; losses: number; goals: number; assists: number }>();
-    players.forEach(p => playerUpdates.set(p.id, { wins: p.wins, losses: p.losses, goals: p.goals, assists: p.assists }));
+    const playerUpdates = new Map<string, { wins: number; losses: number; goals: number; assists: number; gamesPlayed: number }>();
+    players.forEach(p => playerUpdates.set(p.id, { wins: p.wins, losses: p.losses, goals: p.goals, assists: p.assists, gamesPlayed: p.gamesPlayed }));
 
     matches.forEach(match => {
       const team1 = teams.find(t => t.name === match.team1Name);
@@ -506,12 +517,14 @@ const App: React.FC = () => {
 
       team1.players.forEach(pInTeam => { 
         const currentStats = playerUpdates.get(pInTeam.id)!;
+        currentStats.gamesPlayed += 1;
         if (team1Won) currentStats.wins += 1;
         else if (team2Won) currentStats.losses += 1;
         playerUpdates.set(pInTeam.id, currentStats);
       });
       team2.players.forEach(pInTeam => { 
         const currentStats = playerUpdates.get(pInTeam.id)!;
+        currentStats.gamesPlayed += 1;
         if (team2Won) currentStats.wins += 1;
         else if (team1Won) currentStats.losses += 1;
         playerUpdates.set(pInTeam.id, currentStats);
@@ -540,9 +553,10 @@ const App: React.FC = () => {
         losses: updatedStats.losses,
         goals: updatedStats.goals,
         assists: updatedStats.assists,
+        games_played: updatedStats.gamesPlayed,
       };
     });
-    const { error } = await supabase.from('players').upsert(updatedPlayerRecords);
+    const { error } = await (supabase.from('players') as any).upsert(updatedPlayerRecords as PlayerInsert[]);
 
     if (error) {
         showFlashNotification('error', `Failed to update player stats: ${error.message}`);
@@ -620,7 +634,20 @@ const App: React.FC = () => {
   
   const handleOpenLoginModal = () => setShowAuthModal(true);
 
-  const sortedPlayers = [...players].sort((a,b) => a.name.localeCompare(b.name));
+  const sortedPlayers = [...players].sort((a, b) => {
+    // Primary sort: wins descending
+    if (b.wins !== a.wins) {
+      return b.wins - a.wins;
+    }
+    // Secondary sort: goals + assists descending
+    const totalGoalsAndAssistsA = a.goals + a.assists;
+    const totalGoalsAndAssistsB = b.goals + b.assists;
+    if (totalGoalsAndAssistsB !== totalGoalsAndAssistsA) {
+      return totalGoalsAndAssistsB - totalGoalsAndAssistsA;
+    }
+    // Tertiary sort: name ascending for stability
+    return a.name.localeCompare(b.name);
+  });
 
   const getButtonClass = (variant: 'primary' | 'secondary' | 'danger' | 'warning' | 'success' | 'info' | 'neutral' | 'edit', disabled?: boolean, size: 'normal' | 'small' = 'normal') => {
     let base = "font-semibold rounded-lg shadow-md transition duration-150 transform";
@@ -909,10 +936,10 @@ const App: React.FC = () => {
                 <tr>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 draft-checkbox-column text-center">Draft?</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 name-column">Name</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center star-column">Rating</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center positions-column">Positions</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Wins/Losses</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Goals/Assists</th>
+                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center positions-column">Positions</th>
+                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center star-column">Rating</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-right actions-column">Actions</th>
                 </tr>
               </thead>
@@ -934,16 +961,6 @@ const App: React.FC = () => {
                         />
                     </td>
                     <td className="p-3 text-slate-200 name-column whitespace-nowrap">{player.name}</td>
-                    <td className="p-3 star-column">
-                      <div className="flex justify-center">
-                        <StarRating rating={player.rating} size="sm" />
-                      </div>
-                    </td>
-                    <td className="p-3 text-center positions-column">
-                      <div className="flex justify-center items-center flex-wrap gap-1">
-                        {player.positions.map(pos => <PositionBadge key={pos} position={pos} />)}
-                      </div>
-                    </td>
                     <td className="p-3 text-center font-medium">
                         <span className="text-green-400">{player.wins}</span>
                         <span className="text-slate-500">/</span>
@@ -953,6 +970,16 @@ const App: React.FC = () => {
                         <span className="text-sky-400">{player.goals}</span>
                         <span className="text-slate-500">/</span>
                         <span className="text-purple-400">{player.assists}</span>
+                    </td>
+                    <td className="p-3 text-center positions-column">
+                      <div className="flex justify-center items-center flex-wrap gap-1">
+                        {player.positions.map(pos => <PositionBadge key={pos} position={pos} />)}
+                      </div>
+                    </td>
+                    <td className="p-3 star-column">
+                      <div className="flex justify-center">
+                        <StarRating rating={player.rating} size="sm" />
+                      </div>
                     </td>
                     <td className="p-3 text-right actions-column">
                       <div className="flex justify-end space-x-2">
