@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TeamCardProps, PlayerInTeam } from '../types'; // PlayerInTeam for calculateAverageRating
 import FormationDisplay from './FormationDisplay'; // New import
@@ -22,8 +21,7 @@ const TeamCard: React.FC<TeamCardProps> = ({ team }) => {
     'Team Charlie': 'bg-[#FFF700]',
   };
 
-  // Team Bravo has a white background, so it needs black text for contrast.
-  const headerTextIsBlack = team.name === 'Team Bravo';
+  const headerTextIsBlack = team.name === 'Team Bravo' || team.name === 'Team Charlie';
 
   return (
     <div className={`bg-slate-800 rounded-lg shadow-xl overflow-hidden border-t-2 ${teamColorClasses[team.name] || 'border-slate-700'}`}>
