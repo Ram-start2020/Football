@@ -73,8 +73,8 @@ const MatchPlayCard: React.FC<MatchPlayCardProps> = ({ match, teams, onAddGoal, 
   
   const teamNameColor: Record<string, string> = {
     'Team Alpha': 'text-sky-400',
-    'Team Bravo': 'text-slate-300',
-    'Team Charlie': 'text-yellow-400',
+    'Team Bravo': 'text-white',
+    'Team Charlie': 'text-[#FFF700]',
   }
 
   const handleAddNewGoal = (teamName: string, scorerId: string | null, assisterId: string | null) => {
