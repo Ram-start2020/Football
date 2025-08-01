@@ -13,7 +13,6 @@ import AuthModal from './components/AuthModal';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database } from './lib/database.types';
-import { Analytics } from '@vercel/analytics/react';
 
 type PlayerRow = Database['public']['Tables']['players']['Row'];
 type PlayerInsert = Database['public']['Tables']['players']['Insert'];
@@ -185,7 +184,7 @@ const App: React.FC = () => {
       }
       
       if (data && data.length > 0) {
-        setPlayers(data.map((p: PlayerRow) => ({
+        setPlayers((data as PlayerRow[]).map((p: PlayerRow) => ({
             ...p, 
             gamesPlayed: p.games_played ?? 0,
             isIncludedInDraft: true, 
@@ -193,14 +192,14 @@ const App: React.FC = () => {
         })));
       } else {
         showFlashNotification('info', 'No players found. Seeding database with initial data...');
-        const { error: seedError } = await supabase.from('players').insert(INITIAL_PLAYERS_DATA as PlayerInsert[]);
+        const { error: seedError } = await (supabase.from('players') as any).insert(INITIAL_PLAYERS_DATA as PlayerInsert[]);
 
         if (seedError) {
             showFlashNotification('error', `Failed to seed database: ${seedError.message}`);
         } else {
             const { data: newData, error: newError } = await supabase.from('players').select('*').order('name', { ascending: true });
             if (newData) {
-                setPlayers(newData.map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
+                setPlayers((newData as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
                 showFlashNotification('success', 'Database seeded successfully!');
             }
             if (newError) {
@@ -246,13 +245,13 @@ const App: React.FC = () => {
     };
 
     if (editingId) { 
-      const { data, error } = await supabase.from('players').update(playerRecord).eq('id', editingId).select();
+      const { data, error } = await (supabase.from('players') as any).update(playerRecord).eq('id', editingId).select();
       if (error) {
           showFlashNotification('error', `Failed to update player: ${error.message}`);
           return;
       }
-      if (data && data.length > 0) {
-          const updatedPlayerFromDb: PlayerRow = data[0];
+      if (data) {
+          const updatedPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
           const updatedPlayer: Player = { 
             ...updatedPlayerFromDb, 
             gamesPlayed: updatedPlayerFromDb.games_played ?? 0,
@@ -263,13 +262,13 @@ const App: React.FC = () => {
           showFlashNotification('success', `${playerRecord.name} updated successfully.`);
       }
     } else { 
-      const { data, error } = await supabase.from('players').insert([playerRecord as PlayerInsert]).select();
+      const { data, error } = await (supabase.from('players') as any).insert([playerRecord as PlayerInsert]).select();
       if (error) {
           showFlashNotification('error', `Failed to add player: ${error.message}`);
           return;
       }
-      if (data && data.length > 0) {
-          const newPlayerFromDb: PlayerRow = data[0];
+      if (data) {
+          const newPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
           const newPlayer: Player = { ...newPlayerFromDb, gamesPlayed: newPlayerFromDb.games_played ?? 0, positions: newPlayerFromDb.positions as PlayerPosition[], isIncludedInDraft: true };
           setPlayers(prev => [...prev, newPlayer].sort((a,b) => a.name.localeCompare(b.name)));
           showFlashNotification('success', `${newPlayer.name} added to the roster.`);
@@ -557,7 +556,7 @@ const App: React.FC = () => {
         games_played: updatedStats.gamesPlayed,
       };
     });
-    const { error } = await supabase.from('players').upsert(updatedPlayerRecords as PlayerInsert[]);
+    const { error } = await (supabase.from('players') as any).upsert(updatedPlayerRecords as PlayerInsert[]);
 
     if (error) {
         showFlashNotification('error', `Failed to update player stats: ${error.message}`);
@@ -1015,7 +1014,6 @@ const App: React.FC = () => {
       <footer className="mt-12 pt-8 border-t border-slate-700 text-center">
         <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.5 - Admin Controls</p>
       </footer>
-      <Analytics />
     </div>
   );
 };
