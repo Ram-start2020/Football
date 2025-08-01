@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { TeamCardProps, PlayerInTeam } from '../types'; // PlayerInTeam for calculateAverageRating
 import FormationDisplay from './FormationDisplay'; // New import
@@ -21,15 +22,18 @@ const TeamCard: React.FC<TeamCardProps> = ({ team }) => {
     'Team Charlie': 'bg-[#FFF700]',
   };
 
-  const headerTextIsBlack = team.name === 'Team Bravo' || team.name === 'Team Charlie';
+  // Team Bravo has a white background, so it needs black text.
+  const headerTextIsBlack = team.name === 'Team Bravo';
+  // For Team Charlie, white text on yellow needs a shadow for readability.
+  const isTeamCharlie = team.name === 'Team Charlie';
 
   return (
     <div className={`bg-slate-800 rounded-lg shadow-xl overflow-hidden border-t-2 ${teamColorClasses[team.name] || 'border-slate-700'}`}>
       <div className={`p-2 ${teamHeaderColorClasses[team.name] || 'bg-slate-700'}`}>
-        <h3 className={`text-base font-bold text-center truncate ${headerTextIsBlack ? 'text-black' : 'text-white'}`}>
+        <h3 className={`text-base font-bold text-center truncate ${headerTextIsBlack ? 'text-black' : 'text-white'} ${isTeamCharlie ? '[text-shadow:0_1px_2px_rgba(0,0,0,0.5)]' : ''}`}>
           {team.name}
         </h3>
-        <p className={`text-xs text-center ${headerTextIsBlack ? 'text-gray-700' : 'text-slate-200'}`}>
+        <p className={`text-xs text-center ${headerTextIsBlack ? 'text-gray-700' : 'text-slate-200'} ${isTeamCharlie ? '[text-shadow:0_1px_2px_rgba(0,0,0,0.4)]' : ''}`}>
           Avg. Rating: {calculateAverageRating(team.players)}
         </p>
       </div>
