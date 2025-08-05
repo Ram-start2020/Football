@@ -1,4 +1,5 @@
 
+
 import { PlayerPosition, Player } from './types';
 
 export const TEAM_SIZE = 6;
@@ -19,7 +20,7 @@ export const TOTAL_POSITIONS_NEEDED: Record<PlayerPosition, number> = {
   [PlayerPosition.FW]: POSITIONS_PER_TEAM[PlayerPosition.FW] * NUM_TEAMS, // 3
 };
 
-export const TEAM_NAMES = ['Team Alpha', 'Team Bravo', 'Team Charlie'];
+export const TEAM_NAMES = ['כחולים', 'לבנים', 'צהובים'];
 
 export const INITIAL_PLAYERS_DATA: Omit<Player, 'id' | 'wins' | 'losses' | 'goals' | 'assists' | 'isIncludedInDraft' | 'gamesPlayed'>[] = [
   // Forwards (some versatile)

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { TeamCardProps, PlayerInTeam } from '../types'; // PlayerInTeam for calculateAverageRating
 import FormationDisplay from './FormationDisplay'; // New import
@@ -10,18 +11,18 @@ const calculateAverageRating = (players: PlayerInTeam[]): string => {
 
 const TeamCard: React.FC<TeamCardProps> = ({ team }) => {
   const teamColorClasses: Record<string, string> = {
-    'Team Alpha': 'border-sky-500',
-    'Team Bravo': 'border-white',
-    'Team Charlie': 'border-[#FFF700]',
+    'כחולים': 'border-sky-500',
+    'לבנים': 'border-white',
+    'צהובים': 'border-[#FFF700]',
   };
 
   const teamHeaderColorClasses: Record<string, string> = {
-    'Team Alpha': 'bg-sky-600',
-    'Team Bravo': 'bg-white',
-    'Team Charlie': 'bg-[#FFF700]',
+    'כחולים': 'bg-sky-600',
+    'לבנים': 'bg-white',
+    'צהובים': 'bg-[#FFF700]',
   };
 
-  const headerTextIsBlack = team.name === 'Team Bravo' || team.name === 'Team Charlie';
+  const headerTextIsBlack = team.name === 'לבנים' || team.name === 'צהובים';
 
   return (
     <div className={`bg-slate-800 rounded-lg shadow-xl overflow-hidden border-t-2 ${teamColorClasses[team.name] || 'border-slate-700'}`}>

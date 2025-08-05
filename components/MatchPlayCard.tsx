@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Match, Team, MatchPlayCardProps, Player, GoalEvent } from '../types';
 
@@ -72,9 +73,9 @@ const MatchPlayCard: React.FC<MatchPlayCardProps> = ({ match, teams, onAddGoal, 
   }
   
   const teamNameColor: Record<string, string> = {
-    'Team Alpha': 'text-sky-400',
-    'Team Bravo': 'text-white',
-    'Team Charlie': 'text-[#FFF700]',
+    'כחולים': 'text-sky-400',
+    'לבנים': 'text-white',
+    'צהובים': 'text-[#FFF700]',
   }
 
   const handleAddNewGoal = (teamName: string, scorerId: string | null, assisterId: string | null) => {
