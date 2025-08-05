@@ -2,18 +2,16 @@
 
 import { PlayerPosition, Player } from './types';
 
-export const TEAM_SIZE = 6;
 export const NUM_TEAMS = 3;
-export const REQUIRED_PLAYERS_TOTAL = TEAM_SIZE * NUM_TEAMS; // 18
 
-// Defines the structure of each team
+// Defines the CORE structure of each team (6 players)
 export const POSITIONS_PER_TEAM: Record<PlayerPosition, number> = {
   [PlayerPosition.DF]: 3,
   [PlayerPosition.MID]: 2,
   [PlayerPosition.FW]: 1,
 };
 
-// Total number of slots for each position across all teams
+// Total number of slots for each CORE position across all teams
 export const TOTAL_POSITIONS_NEEDED: Record<PlayerPosition, number> = {
   [PlayerPosition.DF]: POSITIONS_PER_TEAM[PlayerPosition.DF] * NUM_TEAMS, // 9
   [PlayerPosition.MID]: POSITIONS_PER_TEAM[PlayerPosition.MID] * NUM_TEAMS, // 6
@@ -47,4 +45,8 @@ export const INITIAL_PLAYERS_DATA: Omit<Player, 'id' | 'wins' | 'losses' | 'goal
   // Extra players
   { name: 'Sam "Shadow" Green', rating: 4, positions: [PlayerPosition.MID, PlayerPosition.DF] },
   { name: 'Terry "Flash" Bell', rating: 5, positions: [PlayerPosition.FW, PlayerPosition.MID] },
+  // Add 3 more for 7v7 mode testing
+  { name: 'Uma "Utility" Vance', rating: 3, positions: [PlayerPosition.DF, PlayerPosition.MID, PlayerPosition.FW] },
+  { name: 'Vic "Versatile" King', rating: 4, positions: [PlayerPosition.DF, PlayerPosition.MID] },
+  { name: 'Wendy "Winger" Cross', rating: 3, positions: [PlayerPosition.FW] },
 ];

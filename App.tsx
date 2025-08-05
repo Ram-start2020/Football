@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
-import { INITIAL_PLAYERS_DATA, REQUIRED_PLAYERS_TOTAL, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS, TEAM_SIZE } from './constants';
+import { INITIAL_PLAYERS_DATA, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS } from './constants';
 import PlayerFormModal from './components/PlayerFormModal';
 import TeamCard from './components/TeamCard';
 import MatchPlayCard from './components/MatchPlayCard';
@@ -137,6 +137,10 @@ const App: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const isAdmin = !!session;
 
+  const [gameMode, setGameMode] = useState<6 | 7>(6);
+  const teamSize = gameMode;
+  const requiredPlayersTotal = teamSize * NUM_TEAMS;
+
   const participatingPlayerCount = useMemo(() => {
     return players.filter(p => p.isIncludedInDraft).length;
   }, [players]);
@@ -184,7 +188,7 @@ const App: React.FC = () => {
       }
       
       if (data && data.length > 0) {
-        setPlayers((data as PlayerRow[]).map((p: PlayerRow) => ({
+        setPlayers((data as unknown as PlayerRow[]).map((p: PlayerRow) => ({
             ...p, 
             gamesPlayed: p.games_played ?? 0,
             isIncludedInDraft: true, 
@@ -199,7 +203,7 @@ const App: React.FC = () => {
         } else {
             const { data: newData, error: newError } = await supabase.from('players').select('*').order('name', { ascending: true });
             if (newData) {
-                setPlayers((newData as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
+                setPlayers((newData as unknown as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
                 showFlashNotification('success', 'Database seeded successfully!');
             }
             if (newError) {
@@ -310,8 +314,8 @@ const App: React.FC = () => {
   const generateTeams = useCallback(() => {
     const currentDraftablePlayers = players.filter(p => p.isIncludedInDraft);
 
-    if (currentDraftablePlayers.length !== REQUIRED_PLAYERS_TOTAL) {
-      showFlashNotification('error', `Please select exactly ${REQUIRED_PLAYERS_TOTAL} players for the draft. Currently ${currentDraftablePlayers.length} selected.`);
+    if (currentDraftablePlayers.length !== requiredPlayersTotal) {
+      showFlashNotification('error', `Please select exactly ${requiredPlayersTotal} players for the draft. Currently ${currentDraftablePlayers.length} selected.`);
       return;
     }
 
@@ -328,7 +332,7 @@ const App: React.FC = () => {
 
     for (const pos of Object.values(PlayerPosition)) {
         if (uniquePlayersPerPosition[pos].size < TOTAL_POSITIONS_NEEDED[pos]) {
-            showFlashNotification('error', `Not enough unique players capable of playing ${pos}. Need ${TOTAL_POSITIONS_NEEDED[pos]}, but only ${uniquePlayersPerPosition[pos].size} available. Adjust player positions or draft selection.`);
+            showFlashNotification('error', `Not enough unique players capable of playing ${pos} for the core positions. Need ${TOTAL_POSITIONS_NEEDED[pos]}, but only ${uniquePlayersPerPosition[pos].size} available. Adjust player positions or draft selection.`);
             return;
         }
     }
@@ -351,10 +355,11 @@ const App: React.FC = () => {
         const midPool = assignablePlayersThisAttempt.filter(p => p.positions.includes(PlayerPosition.MID)).sort(sortPlayersForAssignment);
         const dfPool = assignablePlayersThisAttempt.filter(p => p.positions.includes(PlayerPosition.DF)).sort(sortPlayersForAssignment);
 
-        const newTeamsProtoThisAttempt: Team[] = TEAM_NAMES.map(name => ({ name, players: [] as PlayerInTeam[] }));
+        let newTeamsProtoThisAttempt: Team[] = TEAM_NAMES.map(name => ({ name, players: [] as PlayerInTeam[] }));
         const assignedPlayerIdsThisAttempt = new Set<string>();
         let currentAttemptFailed = false;
         
+        // Step 1: Assign core 18 players
         for (const currentPosToFill of dynamicPositionFillOrder) {
             if (currentAttemptFailed) break;
             const numSlotsPerTeamForPos = POSITIONS_PER_TEAM[currentPosToFill];
@@ -386,8 +391,38 @@ const App: React.FC = () => {
             }
         }
         
-        if (currentAttemptFailed || assignedPlayerIdsThisAttempt.size !== REQUIRED_PLAYERS_TOTAL) {
+        if (currentAttemptFailed || assignedPlayerIdsThisAttempt.size !== (NUM_TEAMS * 6)) {
             continue; 
+        }
+
+        // Step 2: Assign flex players for 7v7 mode
+        if (gameMode === 7) {
+            const flexPool = currentDraftablePlayers.filter(p => !assignedPlayerIdsThisAttempt.has(p.id));
+
+            if (flexPool.length !== NUM_TEAMS) continue;
+
+            const teamsWithRatings = newTeamsProtoThisAttempt.map(team => ({
+                team,
+                rating: calculateTeamTotalRating(team)
+            })).sort((a, b) => a.rating - b.rating);
+
+            flexPool.sort((a, b) => b.rating - a.rating);
+
+            const getPreferredPosition = (player: Player): PlayerPosition => {
+                if (player.positions.includes(PlayerPosition.MID)) return PlayerPosition.MID;
+                if (player.positions.includes(PlayerPosition.FW)) return PlayerPosition.FW;
+                return player.positions[0] || PlayerPosition.DF;
+            };
+
+            teamsWithRatings.forEach((teamWithRating, index) => {
+                const flexPlayer = flexPool[index];
+                teamWithRating.team.players.push({
+                    ...flexPlayer,
+                    assignedPositionOnTeam: getPreferredPosition(flexPlayer)
+                });
+            });
+
+            newTeamsProtoThisAttempt = teamsWithRatings.map(tr => tr.team);
         }
         
         const currentBalanceScore = calculateBalanceScore(newTeamsProtoThisAttempt);
@@ -412,12 +447,12 @@ const App: React.FC = () => {
         setSelectedTeam1ForNewMatch(null);
         setSelectedTeam2ForNewMatch(null);
         setAddMatchError(null);
-        showFlashNotification('success', `Team proposals generated! (Balance Score: ${bestBalanceScore.toFixed(0)})`);
+        showFlashNotification('success', `Team proposals generated for ${gameMode}v${gameMode} mode! (Balance Score: ${bestBalanceScore.toFixed(0)})`);
     } else {
         showFlashNotification('error', `Could not generate balanced teams after ${MAX_ATTEMPTS} attempts. The selected players might not cover all team position needs adequately, or the combination is too constrained. Review player positions, draft selection, or try manual edit.`);
         setTeams([]); 
     }
-  }, [players, participatingPlayerCount]); 
+  }, [players, participatingPlayerCount, gameMode, requiredPlayersTotal]); 
 
   const handleConfirmTeams = useCallback(() => {
     if (teams.length !== NUM_TEAMS) {
@@ -585,8 +620,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenManualEdit = () => {
-    if (draftablePlayersList.length !== REQUIRED_PLAYERS_TOTAL) {
-        showFlashNotification('error', `Manual edit requires exactly ${REQUIRED_PLAYERS_TOTAL} players selected for draft.`);
+    if (draftablePlayersList.length !== requiredPlayersTotal) {
+        showFlashNotification('error', `Manual edit requires exactly ${requiredPlayersTotal} players selected for draft.`);
         return;
     }
     const teamsToEdit = teams.length === NUM_TEAMS 
@@ -600,20 +635,20 @@ const App: React.FC = () => {
   const handleSaveManualTeams = (manuallyEditedTeams: Team[]) => {
     let totalPlayersInManualTeams = 0;
     for(const team of manuallyEditedTeams) {
-        if(team.players.length !== TEAM_SIZE) {
-            showFlashNotification('error', `Each team must have exactly ${TEAM_SIZE} players. ${team.name} has ${team.players.length}.`);
+        if(team.players.length !== teamSize) {
+            showFlashNotification('error', `Each team must have exactly ${teamSize} players. ${team.name} has ${team.players.length}.`);
             return;
         }
         totalPlayersInManualTeams += team.players.length;
     }
 
-    if (totalPlayersInManualTeams !== REQUIRED_PLAYERS_TOTAL) {
-        showFlashNotification('error', `Total players in manual teams must be ${REQUIRED_PLAYERS_TOTAL}. Found ${totalPlayersInManualTeams}.`);
+    if (totalPlayersInManualTeams !== requiredPlayersTotal) {
+        showFlashNotification('error', `Total players in manual teams must be ${requiredPlayersTotal}. Found ${totalPlayersInManualTeams}.`);
         return;
     }
     const allPlayerIdsInManualTeams = manuallyEditedTeams.flatMap(t => t.players.map(p => p.id));
-    if (new Set(allPlayerIdsInManualTeams).size !== REQUIRED_PLAYERS_TOTAL) {
-        showFlashNotification('error', `Players must be unique across all teams and all ${REQUIRED_PLAYERS_TOTAL} drafted players must be assigned.`);
+    if (new Set(allPlayerIdsInManualTeams).size !== requiredPlayersTotal) {
+        showFlashNotification('error', `Players must be unique across all teams and all ${requiredPlayersTotal} drafted players must be assigned.`);
         return;
     }
 
@@ -675,8 +710,8 @@ const App: React.FC = () => {
   }
   
   const availableTeamsForNewMatch2 = TEAM_NAMES.filter(name => name !== selectedTeam1ForNewMatch);
-  const canGenerateTeams = participatingPlayerCount === REQUIRED_PLAYERS_TOTAL;
-  const canManuallyEdit = participatingPlayerCount === REQUIRED_PLAYERS_TOTAL;
+  const canGenerateTeams = participatingPlayerCount === requiredPlayersTotal;
+  const canManuallyEdit = participatingPlayerCount === requiredPlayersTotal;
 
 
   if (isLoading) {
@@ -738,10 +773,22 @@ const App: React.FC = () => {
         <p className="text-slate-400 mt-2 text-lg">Manage players, generate fair teams, and track your game day stats!</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
         <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary', !isAdmin)} disabled={!isAdmin} title={!isAdmin ? 'Admin login required' : 'Add a new player'}>
           Add New Player
         </button>
+
+        <div className="bg-slate-800 rounded-lg p-2 flex flex-col items-center justify-center">
+          <label className="block text-sm font-medium text-slate-300 mb-2">Game Mode</label>
+          <div className="flex bg-slate-700 p-1 rounded-lg w-full">
+              <button onClick={() => setGameMode(6)} disabled={teams.length > 0} className={`px-4 py-1.5 text-sm font-bold rounded-md w-1/2 transition ${gameMode === 6 ? 'bg-sky-600 text-white shadow-inner' : 'bg-transparent text-slate-300 hover:bg-slate-600'} ${teams.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  6 vs 6
+              </button>
+              <button onClick={() => setGameMode(7)} disabled={teams.length > 0} className={`px-4 py-1.5 text-sm font-bold rounded-md w-1/2 transition ${gameMode === 7 ? 'bg-sky-600 text-white shadow-inner' : 'bg-transparent text-slate-300 hover:bg-slate-600'} ${teams.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  7 vs 7
+              </button>
+          </div>
+        </div>
 
         {teams.length === 0 && (
           <div className="relative">
@@ -749,13 +796,13 @@ const App: React.FC = () => {
               onClick={generateTeams} 
               className={getButtonClass('success', !canGenerateTeams)}
               disabled={!canGenerateTeams}
-              title={!canGenerateTeams ? `Select exactly ${REQUIRED_PLAYERS_TOTAL} players for draft` : 'Generate balanced teams'}
+              title={!canGenerateTeams ? `Select exactly ${requiredPlayersTotal} players for draft` : 'Generate balanced teams'}
             >
               Generate Teams
             </button>
             <span className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs px-2 py-0.5 rounded-full
-                             ${participatingPlayerCount === REQUIRED_PLAYERS_TOTAL ? 'bg-emerald-500/80' : 'bg-amber-500/80'} text-white`}>
-                Draft: {participatingPlayerCount}/{REQUIRED_PLAYERS_TOTAL}
+                             ${participatingPlayerCount === requiredPlayersTotal ? 'bg-emerald-500/80' : 'bg-amber-500/80'} text-white`}>
+                Draft: {participatingPlayerCount}/{requiredPlayersTotal}
             </span>
           </div>
         )}
@@ -764,7 +811,7 @@ const App: React.FC = () => {
                 onClick={handleOpenManualEdit}
                 className={getButtonClass('warning', !canManuallyEdit)}
                 disabled={!canManuallyEdit}
-                title={!canManuallyEdit ? `Select ${REQUIRED_PLAYERS_TOTAL} players for draft first` : 'Manually create teams'}
+                title={!canManuallyEdit ? `Select ${requiredPlayersTotal} players for draft first` : 'Manually create teams'}
             >
                 Manual Edit Teams
             </button>
@@ -801,7 +848,7 @@ const App: React.FC = () => {
         )}
         
         {teams.length > 0 && (
-           <button onClick={clearTeamsAndMatches} className={getButtonClass('danger')}>
+           <button onClick={clearTeamsAndMatches} className={getButtonClass('danger', false, 'normal')}>
              {allMatchesFinalized || teamsConfirmed ? 'Clear & New Game Day' : 'Clear Teams'}
            </button>
         )}
@@ -824,7 +871,7 @@ const App: React.FC = () => {
           onSave={handleSaveManualTeams}
           initialTeams={initialTeamsForManualEdit}
           draftablePlayers={draftablePlayersList}
-          teamSize={TEAM_SIZE}
+          teamSize={teamSize}
           teamNames={TEAM_NAMES}
         />
       )}
@@ -833,7 +880,7 @@ const App: React.FC = () => {
       {teams.length > 0 && (
         <section className="mb-10">
           <h2 className="text-3xl font-semibold mb-6 text-center text-sky-300">
-            {teamsConfirmed ? "Confirmed Teams" : "Proposed Teams"}
+            {teamsConfirmed ? `Confirmed Teams (${gameMode}v${gameMode})` : `Proposed Teams (${gameMode}v${gameMode})`}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {teams.map(team => (
@@ -921,8 +968,8 @@ const App: React.FC = () => {
             <h2 className="text-3xl font-semibold text-sky-300">Player Roster ({players.length})</h2>
             {teams.length === 0 && (
                 <span className={`text-sm px-3 py-1 rounded-full
-                                 ${participatingPlayerCount === REQUIRED_PLAYERS_TOTAL ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
-                    Selected for Draft: {participatingPlayerCount} / {REQUIRED_PLAYERS_TOTAL}
+                                 ${participatingPlayerCount === requiredPlayersTotal ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
+                    Selected for Draft: {participatingPlayerCount} / {requiredPlayersTotal}
                 </span>
             )}
         </div>
@@ -1012,7 +1059,7 @@ const App: React.FC = () => {
       </section>
 
       <footer className="mt-12 pt-8 border-t border-slate-700 text-center">
-        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.5 - Admin Controls</p>
+        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.6 - Game Modes</p>
       </footer>
     </div>
   );
