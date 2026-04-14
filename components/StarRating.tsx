@@ -34,7 +34,7 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, size = 'md' }) => {
                 viewBox="0 0 20 20"
                 aria-hidden="true"
                 style={{
-                  width: isHalf ? '60%' : '100%',
+                  width: isHalf ? '75%' : '100%',
                   overflow: 'hidden',
                 }}
               >
