@@ -50,8 +50,8 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
       return;
     }
 
-    if (rating < 1 || rating > 5) {
-      setError('Rating must be between 1 and 5.');
+    if (rating < 0.5 || rating > 5) {
+      setError('Rating must be between 0.5 and 5.');
       return;
     }
     if (selectedPositions.length === 0) {
@@ -91,14 +91,15 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
             />
           </div>
           <div className="mb-4">
-            <label htmlFor="playerRating" className="block text-sm font-medium text-slate-300 mb-1">Rating (1-5)</label>
+            <label htmlFor="playerRating" className="block text-sm font-medium text-slate-300 mb-1">Rating (0.5-5)</label>
             <input
               type="number"
               id="playerRating"
               value={rating}
-              onChange={(e) => setRating(parseInt(e.target.value))}
-              min="1"
+              onChange={(e) => setRating(parseFloat(e.target.value))}
+              min="0.5"
               max="5"
+              step="0.5"
               className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-slate-100"
               required
             />
