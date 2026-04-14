@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
@@ -332,7 +331,7 @@ const App: React.FC = () => {
 
     for (const pos of Object.values(PlayerPosition)) {
         if (uniquePlayersPerPosition[pos].size < TOTAL_POSITIONS_NEEDED[pos]) {
-            showFlashNotification('error', `Not enough unique players capable of playing ${pos} for the core positions. Need ${TOTAL_POSITIONS_NEEDED[pos]}, but only ${uniquePlayersPerPosition[pos].size} available. Adjust player positions or draft selection.`);
+            showFlashNotification('error', `Not enough unique players capable of playing ${pos} for the core positions. Need ${TOTAL_POSITIONS_NEEDED[pos]}, but only ${uniquePlayersPerPosition[pos].size} can.`);
             return;
         }
     }
@@ -449,7 +448,7 @@ const App: React.FC = () => {
         setAddMatchError(null);
         showFlashNotification('success', `Team proposals generated for ${gameMode}v${gameMode} mode! (Balance Score: ${bestBalanceScore.toFixed(0)})`);
     } else {
-        showFlashNotification('error', `Could not generate balanced teams after ${MAX_ATTEMPTS} attempts. The selected players might not cover all team position needs adequately, or the combination is too constrained. Review player positions, draft selection, or try manual edit.`);
+        showFlashNotification('error', `Could not generate balanced teams after ${MAX_ATTEMPTS} attempts. The selected players might not cover all team position needs adequately.`);
         setTeams([]); 
     }
   }, [players, participatingPlayerCount, gameMode, requiredPlayersTotal]); 
@@ -781,10 +780,10 @@ const App: React.FC = () => {
         <div className="bg-slate-800 rounded-lg p-2 flex flex-col items-center justify-center">
           <label className="block text-sm font-medium text-slate-300 mb-2">Game Mode</label>
           <div className="flex bg-slate-700 p-1 rounded-lg w-full">
-              <button onClick={() => setGameMode(6)} disabled={teams.length > 0} className={`px-4 py-1.5 text-sm font-bold rounded-md w-1/2 transition ${gameMode === 6 ? 'bg-sky-600 text-white shadow-inner' : 'bg-transparent text-slate-300 hover:bg-slate-600'} ${teams.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button onClick={() => setGameMode(6)} disabled={teams.length > 0} className={`px-4 py-1.5 text-sm font-bold rounded-md w-1/2 transition ${gameMode === 6 ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'}`}>
                   6 vs 6
               </button>
-              <button onClick={() => setGameMode(7)} disabled={teams.length > 0} className={`px-4 py-1.5 text-sm font-bold rounded-md w-1/2 transition ${gameMode === 7 ? 'bg-sky-600 text-white shadow-inner' : 'bg-transparent text-slate-300 hover:bg-slate-600'} ${teams.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button onClick={() => setGameMode(7)} disabled={teams.length > 0} className={`px-4 py-1.5 text-sm font-bold rounded-md w-1/2 transition ${gameMode === 7 ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'}`}>
                   7 vs 7
               </button>
           </div>
@@ -844,7 +843,7 @@ const App: React.FC = () => {
             title={!isAdmin ? "Admin login required" : matches.length === 0 ? "Add matches first" : "Finalize and update stats"}
             >
              Finalize Game Day
-           </button>
+            </button>
         )}
         
         {teams.length > 0 && (
@@ -986,8 +985,12 @@ const App: React.FC = () => {
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Wins/Losses</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Goals/Assists</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center positions-column">Positions</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center star-column">Rating</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-right actions-column">Actions</th>
+                  {isAdmin && (
+                    <>
+                      <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center star-column">Rating</th>
+                      <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-right actions-column">Actions</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
@@ -1023,33 +1026,37 @@ const App: React.FC = () => {
                         {player.positions.map(pos => <PositionBadge key={pos} position={pos} />)}
                       </div>
                     </td>
-                    <td className="p-3 star-column">
-                      <div className="flex justify-center">
-                        <StarRating rating={player.rating} size="sm" />
-                      </div>
-                    </td>
-                    <td className="p-3 text-right actions-column">
-                      <div className="flex justify-end space-x-2">
-                         <button
-                            onClick={() => handleOpenEditPlayerModal(player)}
-                            className={getButtonClass('edit', !isAdmin || teams.length > 0, 'small') + " action-button"}
-                            title={!isAdmin ? "Admin login required" : teams.length > 0 ? "Clear teams before editing" : "Edit player"}
-                            disabled={!isAdmin || teams.length > 0}
-                            aria-label={`Edit player ${player.name}`}
-                          >
-                           Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeletePlayer(player.id)}
-                            className={getButtonClass('danger', !isAdmin || teams.length > 0, 'small') + " action-button"}
-                            title={!isAdmin ? "Admin login required" : teams.length > 0 ? "Clear teams before deleting" : "Delete player"}
-                            disabled={!isAdmin || teams.length > 0}
-                            aria-label={`Delete player ${player.name}`}
-                          >
-                            Delete
-                          </button>
-                      </div>
-                    </td>
+                    {isAdmin && (
+                      <>
+                        <td className="p-3 star-column">
+                          <div className="flex justify-center">
+                            <StarRating rating={player.rating} size="sm" />
+                          </div>
+                        </td>
+                        <td className="p-3 text-right actions-column">
+                          <div className="flex justify-end space-x-2">
+                             <button
+                                onClick={() => handleOpenEditPlayerModal(player)}
+                                className={getButtonClass('edit', !isAdmin || teams.length > 0, 'small') + " action-button"}
+                                title={!isAdmin ? "Admin login required" : teams.length > 0 ? "Clear teams before editing" : "Edit player"}
+                                disabled={!isAdmin || teams.length > 0}
+                                aria-label={`Edit player ${player.name}`}
+                              >
+                               Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeletePlayer(player.id)}
+                                className={getButtonClass('danger', !isAdmin || teams.length > 0, 'small') + " action-button"}
+                                title={!isAdmin ? "Admin login required" : teams.length > 0 ? "Clear teams before deleting" : "Delete player"}
+                                disabled={!isAdmin || teams.length > 0}
+                                aria-label={`Delete player ${player.name}`}
+                              >
+                                Delete
+                              </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
