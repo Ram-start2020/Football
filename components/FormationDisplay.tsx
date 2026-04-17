@@ -1,13 +1,13 @@
-
 import React from 'react';
 import { Team, PlayerInTeam, PlayerPosition } from '../types';
 import StarRating from './StarRating'; // Import StarRating
 
 interface PlayerMarkerProps {
   player: PlayerInTeam;
+  isAdmin: boolean;
 }
 
-const PlayerMarker: React.FC<PlayerMarkerProps> = ({ player }) => {
+const PlayerMarker: React.FC<PlayerMarkerProps> = ({ player, isAdmin }) => {
   const positionAbbreviation: Record<PlayerPosition, string> = {
     [PlayerPosition.FW]: 'FW',
     [PlayerPosition.MID]: 'MF',
@@ -21,7 +21,7 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({ player }) => {
 
   return (
     <div className="flex flex-col items-center mx-px text-center" aria-label={`Player ${player.name}, Rating ${player.rating}, playing as ${player.assignedPositionOnTeam}`}>
-      <StarRating rating={player.rating} size="sm" />
+      {isAdmin && <StarRating rating={player.rating} size="sm" />}
       <div
         className={`mt-0.5 w-8 h-8 ${positionColor[player.assignedPositionOnTeam]} rounded-full flex items-center justify-center text-white font-bold text-[0.6rem] shadow-md border border-slate-900/30`}
         title={`${player.name} - ${player.assignedPositionOnTeam}`}
@@ -37,9 +37,10 @@ const PlayerMarker: React.FC<PlayerMarkerProps> = ({ player }) => {
 
 interface FormationDisplayProps {
   team: Team;
+  isAdmin: boolean;
 }
 
-const FormationDisplay: React.FC<FormationDisplayProps> = ({ team }) => {
+const FormationDisplay: React.FC<FormationDisplayProps> = ({ team, isAdmin }) => {
   const defenders = team.players.filter(p => p.assignedPositionOnTeam === PlayerPosition.DF);
   const midfielders = team.players.filter(p => p.assignedPositionOnTeam === PlayerPosition.MID);
   const forwards = team.players.filter(p => p.assignedPositionOnTeam === PlayerPosition.FW);
@@ -71,13 +72,13 @@ const FormationDisplay: React.FC<FormationDisplayProps> = ({ team }) => {
       </div>
 
       <div className="flex justify-center w-full z-10">
-        {forwards.map(player => <PlayerMarker key={player.id} player={player} />)}
+        {forwards.map(player => <PlayerMarker key={player.id} player={player} isAdmin={isAdmin} />)}
       </div>
       <div className="flex justify-around w-full z-10">
-        {midfielders.map(player => <PlayerMarker key={player.id} player={player} />)}
+        {midfielders.map(player => <PlayerMarker key={player.id} player={player} isAdmin={isAdmin} />)}
       </div>
       <div className="flex justify-around w-full z-10">
-        {defenders.map(player => <PlayerMarker key={player.id} player={player} />)}
+        {defenders.map(player => <PlayerMarker key={player.id} player={player} isAdmin={isAdmin} />)}
       </div>
     </div>
   );
