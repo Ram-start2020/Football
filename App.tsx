@@ -581,6 +581,7 @@ const App: React.FC = () => {
       avgGoalsPerGame,
       avgGoalsConcededPerGame,
     };
+  });
   }, []);
 
   const handleFinalizeGameDay = useCallback(async () => {
