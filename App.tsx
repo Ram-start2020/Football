@@ -530,7 +530,10 @@ const App: React.FC = () => {
 
 
   const calculateTeamStats = useCallback((matches: Match[], teams: Team[]) => {
+  console.log('calculateTeamStats called with:', { matches, teams });
+  
   const teamStats = teams.map(team => {
+    console.log('Processing team:', team.name);
     let wins = 0;
     let losses = 0;
     let draws = 0;
@@ -539,6 +542,7 @@ const App: React.FC = () => {
     let gamesPlayed = 0;
 
     matches.forEach(match => {
+      console.log('Processing match:', match.team1Name, 'vs', match.team2Name, 'goals:', match.goalEvents.length);
       const isTeam1 = team.name === match.team1Name;
       const isTeam2 = team.name === match.team2Name;
       
@@ -550,6 +554,8 @@ const App: React.FC = () => {
       
       const teamScore = isTeam1 ? team1Score : team2Score;
       const opponentScore = isTeam1 ? team2Score : team1Score;
+      
+      console.log('Team scores:', { team1Score, team2Score, teamScore, opponentScore });
       
       gamesPlayed++;
       goalsScored += teamScore;
@@ -569,7 +575,7 @@ const App: React.FC = () => {
     const avgGoalsPerGame = gamesPlayed > 0 ? (goalsScored / gamesPlayed).toFixed(2) : '0.00';
     const avgGoalsConcededPerGame = gamesPlayed > 0 ? (goalsConceded / gamesPlayed).toFixed(2) : '0.00';
 
-    return {
+    const teamResult = {
       teamName: team.name,
       teamColor: team.name,
       wins,
@@ -582,7 +588,13 @@ const App: React.FC = () => {
       avgGoalsPerGame,
       avgGoalsConcededPerGame,
     };
+    
+    console.log('Team result:', teamResult);
+    return teamResult;
   });
+  
+  console.log('Final teamStats:', teamStats);
+  return teamStats;
   }, []);
 
   const handleFinalizeGameDay = useCallback(async () => {
