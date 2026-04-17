@@ -530,10 +530,7 @@ const App: React.FC = () => {
 
 
   const calculateTeamStats = useCallback((matches: Match[], teams: Team[]) => {
-  console.log('calculateTeamStats called with:', { matches, teams });
-  
   const teamStats = teams.map(team => {
-    console.log('Processing team:', team.name);
     let wins = 0;
     let losses = 0;
     let draws = 0;
@@ -542,7 +539,6 @@ const App: React.FC = () => {
     let gamesPlayed = 0;
 
     matches.forEach(match => {
-      console.log('Processing match:', match.team1Name, 'vs', match.team2Name, 'goals:', match.goalEvents.length);
       const isTeam1 = team.name === match.team1Name;
       const isTeam2 = team.name === match.team2Name;
       
@@ -554,8 +550,6 @@ const App: React.FC = () => {
       
       const teamScore = isTeam1 ? team1Score : team2Score;
       const opponentScore = isTeam1 ? team2Score : team1Score;
-      
-      console.log('Team scores:', { team1Score, team2Score, teamScore, opponentScore });
       
       gamesPlayed++;
       goalsScored += teamScore;
@@ -575,7 +569,7 @@ const App: React.FC = () => {
     const avgGoalsPerGame = gamesPlayed > 0 ? (goalsScored / gamesPlayed).toFixed(2) : '0.00';
     const avgGoalsConcededPerGame = gamesPlayed > 0 ? (goalsConceded / gamesPlayed).toFixed(2) : '0.00';
 
-    const teamResult = {
+    return {
       teamName: team.name,
       teamColor: team.name,
       wins,
@@ -588,12 +582,8 @@ const App: React.FC = () => {
       avgGoalsPerGame,
       avgGoalsConcededPerGame,
     };
-    
-    console.log('Team result:', teamResult);
-    return teamResult;
   });
   
-  console.log('Final teamStats:', teamStats);
   return teamStats;
   }, []);
 
@@ -1045,48 +1035,35 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => {
-                  console.log('Button clicked!');
-                  console.log('Matches:', matches);
-                  console.log('Teams:', teams);
-                  
                   if (matches.length === 0) {
-                    console.log('No matches found');
                     showFlashNotification('error', 'No matches to generate stats from. Please add matches first.');
                     return;
                   }
                   
-                  try {
-                    const stats = calculateTeamStats(matches, teams);
-                    console.log('Calculated stats:', stats);
-                    const sortedStats = stats.sort((a, b) => b.points - a.points);
-                    console.log('Sorted stats:', sortedStats);
-                    
-                    const statsText = sortedStats.map((team: any, index: number) => {
-                      let text = `${index + 1}. ${team.teamColor} - ${team.points}  \n\n`;
-                      text += `${team.teamColor}\n`;
-                      text += `: ${team.wins}\n`;
-                      text += `: ${team.losses}\n`;
-                      text += `: ${team.gamesPlayed}\n`;
-                      text += `: ${team.goalsScored}\n`;
-                      text += `: ${team.goalsConceded}\n`;
-                      text += `: ${team.successRate}%\n`;
-                      text += `: ${team.avgGoalsPerGame}\n`;
-                      text += `: ${team.avgGoalsConcededPerGame}\n\n`;
-                      return text;
-                    }).join('\n');
-                    
-                    console.log('Final text:', statsText);
-                    navigator.clipboard.writeText(' :\n\n' + statsText);
-                    showFlashNotification('success', ' !');
-                  } catch (error) {
-                    console.error('Error in stats calculation:', error);
-                    showFlashNotification('error', 'Error generating stats. Check console for details.');
-                  }
+                  const stats = calculateTeamStats(matches, teams);
+                  const sortedStats = stats.sort((a, b) => b.points - a.points);
+                  
+                  const statsText = sortedStats.map((team: any, index: number) => {
+                    let text = `${index + 1}. ${team.teamColor} - ${team.points} נקודות\n\n`;
+                    text += `${team.teamColor}\n`;
+                    text += `ניצחונות: ${team.wins}\n`;
+                    text += `הפסדים: ${team.losses}\n`;
+                    text += `משחקים שוחקו: ${team.gamesPlayed}\n`;
+                    text += `שערים שהבקיעו: ${team.goalsScored}\n`;
+                    text += `שערים שספגו: ${team.goalsConceded}\n`;
+                    text += `אחוז הצלחה: ${team.successRate}%\n`;
+                    text += `ממוצע שערים למשחק: ${team.avgGoalsPerGame}\n`;
+                    text += `ממוצע שערים שסופגים למשחק: ${team.avgGoalsConcededPerGame}\n\n`;
+                    return text;
+                  }).join('\n');
+                  
+                  navigator.clipboard.writeText('דירוגות קבוצות:\n\n' + statsText);
+                  showFlashNotification('success', 'סטטיסטיקות הועתקו ללוח!');
                 }}
                 className={getButtonClass('info', matches.length === 0)}
                 title="Copy day statistics to clipboard"
               >
-                Test Copy Stats
+                העתק סטטיסטיקות יום
               </button>
             </div>
           )}
