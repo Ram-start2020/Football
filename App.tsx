@@ -663,11 +663,18 @@ const App: React.FC = () => {
     const stats = calculateTeamStats(matches, teams);
     const sortedStats = stats.sort((a, b) => b.points - a.points);
     
+    console.log('Stats calculated:', sortedStats);
     setGameDayStats(sortedStats);
     setShowGameDayStatsModal(true);
+    console.log('Modal should show now');
     
     setAllMatchesFinalized(true);
     showFlashNotification('success', 'Game day finalized! Player stats updated.');
+    
+    // Clear game day screen after showing stats
+    setTimeout(() => {
+      clearTeamsAndMatches();
+    }, 1000);
   }, [matches, teams, players, isAdmin, calculateTeamStats]);
 
   const clearTeamsAndMatches = useCallback(() => {
