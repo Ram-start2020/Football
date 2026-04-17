@@ -544,13 +544,14 @@ const App: React.FC = () => {
       
       if (!isTeam1 && !isTeam2) return;
       
+      // Calculate scores from goal events to ensure they're up to date
+      const team1Score = match.goalEvents.filter(g => g.teamName === match.team1Name).length;
+      const team2Score = match.goalEvents.filter(g => g.teamName === match.team2Name).length;
+      
+      const teamScore = isTeam1 ? team1Score : team2Score;
+      const opponentScore = isTeam1 ? team2Score : team1Score;
+      
       gamesPlayed++;
-      
-      const teamScore = isTeam1 ? match.team1Score : match.team2Score;
-      const opponentScore = isTeam1 ? match.team2Score : match.team1Score;
-      
-      if (teamScore === null || opponentScore === null) return;
-      
       goalsScored += teamScore;
       goalsConceded += opponentScore;
       
