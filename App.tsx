@@ -9,6 +9,7 @@ import StarRating from './components/StarRating';
 import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
 import AuthModal from './components/AuthModal';
+import GameDayStatsModal from './components/GameDayStatsModal';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database } from './lib/database.types';
@@ -134,6 +135,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showGameDayStatsModal, setShowGameDayStatsModal] = useState(false);
+  const [gameDayStats, setGameDayStats] = useState<any[]>([]);
   const isAdmin = !!session;
 
   const [gameMode, setGameMode] = useState<6 | 7>(6);
@@ -526,6 +529,60 @@ const App: React.FC = () => {
   }, []);
 
 
+  const calculateTeamStats = useCallback((matches: Match[], teams: Team[]) => {
+  const teamStats = teams.map(team => {
+    let wins = 0;
+    let losses = 0;
+    let draws = 0;
+    let goalsScored = 0;
+    let goalsConceded = 0;
+    let gamesPlayed = 0;
+
+    matches.forEach(match => {
+      const isTeam1 = team.name === match.team1Name;
+      const isTeam2 = team.name === match.team2Name;
+      
+      if (!isTeam1 && !isTeam2) return;
+      
+      gamesPlayed++;
+      
+      const teamScore = isTeam1 ? match.team1Score : match.team2Score;
+      const opponentScore = isTeam1 ? match.team2Score : match.team1Score;
+      
+      if (teamScore === null || opponentScore === null) return;
+      
+      goalsScored += teamScore;
+      goalsConceded += opponentScore;
+      
+      if (teamScore > opponentScore) {
+        wins++;
+      } else if (teamScore < opponentScore) {
+        losses++;
+      } else {
+        draws++;
+      }
+    });
+
+    const points = wins * 3 + draws * 1;
+    const successRate = gamesPlayed > 0 ? ((points / (gamesPlayed * 3)) * 100) : 0;
+    const avgGoalsPerGame = gamesPlayed > 0 ? (goalsScored / gamesPlayed).toFixed(2) : '0.00';
+    const avgGoalsConcededPerGame = gamesPlayed > 0 ? (goalsConceded / gamesPlayed).toFixed(2) : '0.00';
+
+    return {
+      teamName: team.name,
+      teamColor: team.name,
+      wins,
+      losses,
+      gamesPlayed,
+      goalsScored,
+      goalsConceded,
+      points,
+      successRate: successRate.toFixed(1),
+      avgGoalsPerGame,
+      avgGoalsConcededPerGame,
+    };
+  }, []);
+
   const handleFinalizeGameDay = useCallback(async () => {
     if (!isAdmin) {
       showFlashNotification('error', 'Admin login required to finalize game day.');
@@ -602,9 +659,15 @@ const App: React.FC = () => {
       return updatedStats ? { ...p, ...updatedStats } : p;
     }).sort((a,b) => a.name.localeCompare(b.name)));
 
+    const stats = calculateTeamStats(matches, teams);
+    const sortedStats = stats.sort((a, b) => b.points - a.points);
+    
+    setGameDayStats(sortedStats);
+    setShowGameDayStatsModal(true);
+    
     setAllMatchesFinalized(true);
     showFlashNotification('success', 'Game day finalized! Player stats updated.');
-  }, [matches, teams, players, isAdmin]);
+  }, [matches, teams, players, isAdmin, calculateTeamStats]);
 
   const clearTeamsAndMatches = useCallback(() => {
     setTeams([]);
@@ -874,6 +937,12 @@ const App: React.FC = () => {
           teamNames={TEAM_NAMES}
         />
       )}
+
+      <GameDayStatsModal 
+        isOpen={showGameDayStatsModal}
+        onClose={() => setShowGameDayStatsModal(false)}
+        teamStats={gameDayStats}
+      />
 
 
       {teams.length > 0 && (
