@@ -1011,6 +1011,29 @@ const App: React.FC = () => {
           <h2 className="text-3xl font-semibold mb-6 text-center text-sky-300">
             {teamsConfirmed ? `Confirmed Teams (${gameMode}v${gameMode})` : `Proposed Teams (${gameMode}v${gameMode})`}
           </h2>
+          {teamsConfirmed && (
+            <div className="mb-6 text-center">
+              <button 
+                onClick={() => {
+                  const squadsText = teams.map((team: any) => {
+                    let text = `${team.name}\n`;
+                    team.players.forEach((player: any) => {
+                      text += `${player.name}\n`;
+                    });
+                    text += '\n';
+                    return text;
+                  }).join('\n');
+                  
+                  navigator.clipboard.writeText(squadsText);
+                  showFlashNotification('success', 'הרכבים הועתקו ללוח!');
+                }}
+                className={getButtonClass('info', false)}
+                title="Copy team squads to clipboard"
+              >
+                העתק הרכבים
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {teams.map(team => (
               <TeamCard key={team.name} team={team} isAdmin={isAdmin} />
@@ -1057,7 +1080,7 @@ const App: React.FC = () => {
                     return text;
                   }).join('\n');
                   
-                  navigator.clipboard.writeText('דירוגות קבוצות:\n\n' + statsText);
+                  navigator.clipboard.writeText('דירוג קבוצות:\n\n' + statsText);
                   showFlashNotification('success', 'סטטיסטיקות הועתקו ללוח!');
                 }}
                 className={getButtonClass('info', matches.length === 0)}
