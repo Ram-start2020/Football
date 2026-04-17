@@ -1022,13 +1022,45 @@ const App: React.FC = () => {
             Game Day Matches
           </h2>
           {!allMatchesFinalized && !showAddMatchForm && (
-            <div className="mb-6 text-center">
+            <div className="mb-6 text-center space-x-4">
               <button 
                 onClick={handleAddMatchClick}
                 className={getButtonClass('primary')}
                 title="Add a new match pairing"
               >
                 Add New Match
+              </button>
+              <button 
+                onClick={() => {
+                  if (matches.length === 0) {
+                    showFlashNotification('error', 'No matches to generate stats from. Please add matches first.');
+                    return;
+                  }
+                  
+                  const stats = calculateTeamStats(matches, teams);
+                  const sortedStats = stats.sort((a, b) => b.points - a.points);
+                  
+                  const statsText = sortedStats.map((team: any, index: number) => {
+                    let text = `${index + 1}. ${team.teamColor} - ${team.points} נקודות\n\n`;
+                    text += `${team.teamColor}\n`;
+                    text += `ניצחונות: ${team.wins}\n`;
+                    text += `הפסדים: ${team.losses}\n`;
+                    text += `משחקים שוחקו: ${team.gamesPlayed}\n`;
+                    text += `שערים שהבקיעו: ${team.goalsScored}\n`;
+                    text += `שערים שספגו: ${team.goalsConceded}\n`;
+                    text += `אחוז הצלחה: ${team.successRate}%\n`;
+                    text += `ממוצע שערים למשחק: ${team.avgGoalsPerGame}\n`;
+                    text += `ממוצע שערים שסופגים למשחק: ${team.avgGoalsConcededPerGame}\n\n`;
+                    return text;
+                  }).join('\n');
+                  
+                  navigator.clipboard.writeText('דירוגות קבוצות:\n\n' + statsText);
+                  showFlashNotification('success', 'סטטיסטיקות הועתקו ללוח!');
+                }}
+                className={getButtonClass('info', matches.length === 0)}
+                title="Copy day statistics to clipboard"
+              >
+                העתק סטטיסטיקות יום
               </button>
             </div>
           )}
