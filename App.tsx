@@ -9,7 +9,6 @@ import StarRating from './components/StarRating';
 import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
 import AuthModal from './components/AuthModal';
-import GameDayStatsModal from './components/GameDayStatsModal';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database } from './lib/database.types';
@@ -135,8 +134,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showGameDayStatsModal, setShowGameDayStatsModal] = useState(false);
-  const [gameDayStats, setGameDayStats] = useState<any[]>([]);
+  const [gameDayStats, setGameDayStats] = useState<any>([]);
   const isAdmin = !!session;
 
   const [gameMode, setGameMode] = useState<6 | 7>(6);
@@ -205,7 +203,7 @@ const App: React.FC = () => {
         } else {
             const { data: newData, error: newError } = await supabase.from('players').select('*').order('name', { ascending: true });
             if (newData) {
-                setPlayers((newData as unknown as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
+                setPlayers((newData as unknown as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, player_num: p.player_num ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
                 showFlashNotification('success', 'Database seeded successfully!');
             }
             if (newError) {
@@ -246,6 +244,7 @@ const App: React.FC = () => {
     }
     const playerRecord = {
         name: playerData.name.trim(),
+        player_num: playerData.player_num,
         rating: playerData.rating,
         positions: playerData.positions,
     };
@@ -258,11 +257,18 @@ const App: React.FC = () => {
       }
       if (data) {
           const updatedPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
-          const updatedPlayer: Player = { 
-            ...updatedPlayerFromDb, 
-            gamesPlayed: updatedPlayerFromDb.games_played ?? 0,
-            positions: updatedPlayerFromDb.positions as PlayerPosition[],
-            isIncludedInDraft: players.find(p => p.id === editingId)?.isIncludedInDraft ?? true 
+          const updatedPlayer: Player = {
+            id: editingId,
+            name: playerData.name.trim(),
+            player_num: playerData.player_num,
+            rating: playerData.rating,
+            positions: playerData.positions,
+            isIncludedInDraft: players.find(p => p.id === editingId)?.isIncludedInDraft ?? true,
+            wins: players.find(p => p.id === editingId)?.wins ?? 0,
+            losses: players.find(p => p.id === editingId)?.losses ?? 0,
+            goals: players.find(p => p.id === editingId)?.goals ?? 0,
+            assists: players.find(p => p.id === editingId)?.assists ?? 0,
+            gamesPlayed: players.find(p => p.id === editingId)?.gamesPlayed ?? 0
           };
           setPlayers(prev => prev.map(p => p.id === editingId ? updatedPlayer : p).sort((a,b) => a.name.localeCompare(b.name)));
           showFlashNotification('success', `${playerRecord.name} updated successfully.`);
@@ -275,7 +281,7 @@ const App: React.FC = () => {
       }
       if (data) {
           const newPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
-          const newPlayer: Player = { ...newPlayerFromDb, gamesPlayed: newPlayerFromDb.games_played ?? 0, positions: newPlayerFromDb.positions as PlayerPosition[], isIncludedInDraft: true };
+          const newPlayer: Player = { ...newPlayerFromDb, gamesPlayed: newPlayerFromDb.games_played ?? 0, player_num: newPlayerFromDb.player_num ?? 0, positions: newPlayerFromDb.positions as PlayerPosition[], isIncludedInDraft: true };
           setPlayers(prev => [...prev, newPlayer].sort((a,b) => a.name.localeCompare(b.name)));
           showFlashNotification('success', `${newPlayer.name} added to the roster.`);
       }
@@ -665,7 +671,6 @@ const App: React.FC = () => {
 
     const stats = calculateTeamStats(matches, teams);
     const sortedStats = stats.sort((a, b) => b.points - a.points);
-    
     setGameDayStats(sortedStats);
     setAllMatchesFinalized(true);
     showFlashNotification('success', 'Game day finalized! Player stats updated.');
@@ -811,6 +816,7 @@ const App: React.FC = () => {
             .player-roster-table .positions-column { min-width: 120px; } 
             .player-roster-table .name-column { min-width: 120px; }
             .player-roster-table .draft-checkbox-column { min-width: 60px; }
+            .player-roster-table .player-number-column { min-width: 50px; }
         }
         .player-roster-table .positions-column .flex > span:not(:last-child) { margin-right: 0.35rem; } 
         .player-roster-table tr.excluded-from-draft td:not(.actions-column):not(.draft-checkbox-cell) { opacity: 0.6; } 
@@ -833,7 +839,7 @@ const App: React.FC = () => {
                 </button>
             )}
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold text-sky-400">Soccer Team Balancer</h1>
+        <h1 className="text-4xl font-bold text-sky-400">Soccer Team Balancer</h1>
         <p className="text-slate-400 mt-2 text-lg">Manage players, generate fair teams, and track your game day stats!</p>
       </header>
 
@@ -938,71 +944,6 @@ const App: React.FC = () => {
           teamSize={teamSize}
           teamNames={TEAM_NAMES}
         />
-      )}
-
-      {allMatchesFinalized && gameDayStats.length > 0 && (
-        <section className="mb-10 p-6 bg-slate-800 rounded-xl shadow-xl">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-semibold text-center text-emerald-300">
-              סטטיסטיקות יום משחקים
-            </h2>
-            <button
-              onClick={() => {
-                const statsText = gameDayStats.map((team: any, index: number) => {
-                  let text = `${index + 1}. ${team.teamColor} - ${team.points} נקודות\n\n`;
-                  text += `${team.teamColor}\n`;
-                  text += `ניצחונות: ${team.wins}\n`;
-                  text += `הפסדים: ${team.losses}\n`;
-                  text += `משחקים שוחקו: ${team.gamesPlayed}\n`;
-                  text += `שערים שהבקיעו: ${team.goalsScored}\n`;
-                  text += `שערים שספגו: ${team.goalsConceded}\n`;
-                  text += `אחוז הצלחה: ${team.successRate}%\n`;
-                  text += `ממוצע שערים למשחק: ${team.avgGoalsPerGame}\n`;
-                  text += `ממוצע שערים שסופגים למשחק: ${team.avgGoalsConcededPerGame}\n\n`;
-                  return text;
-                }).join('\n');
-                
-                navigator.clipboard.writeText('דירוגות קבוצות:\n\n' + statsText);
-                showFlashNotification('success', 'סטטיסטיקות הועתקו ללוח!');
-              }}
-              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition duration-150"
-            >
-              העתק ללוח
-            </button>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-xl font-semibold text-slate-200 mb-3">דירוגות קבוצות:</h3>
-            <div className="space-y-2">
-              {gameDayStats.map((team: any, index: number) => (
-                <div key={team.teamName} className="text-slate-300 text-lg">
-                  <span className="font-medium">{index + 1}. {team.teamColor}</span> - {team.points} נקודות
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xl font-semibold text-slate-200 mb-3">סטטיסטיקות קבוצות בודדות:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {gameDayStats.map((team: any) => (
-                <div key={team.teamName} className="bg-slate-700 rounded-lg p-4">
-                  <h4 className="font-bold text-slate-100 mb-3 text-lg">{team.teamColor}</h4>
-                  <div className="space-y-1 text-sm">
-                    <div><span className="text-slate-400">ניצחונות:</span> <span className="text-slate-200">{team.wins}</span></div>
-                    <div><span className="text-slate-400">הפסדים:</span> <span className="text-slate-200">{team.losses}</span></div>
-                    <div><span className="text-slate-400">משחקים שוחקו:</span> <span className="text-slate-200">{team.gamesPlayed}</span></div>
-                    <div><span className="text-slate-400">שערים שהבקיעו:</span> <span className="text-slate-200">{team.goalsScored}</span></div>
-                    <div><span className="text-slate-400">שערים שספגו:</span> <span className="text-slate-200">{team.goalsConceded}</span></div>
-                    <div><span className="text-slate-400">אחוז הצלחה:</span> <span className="text-slate-200">{team.successRate}%</span></div>
-                    <div><span className="text-slate-400">ממוצע שערים למשחק:</span> <span className="text-slate-200">{team.avgGoalsPerGame}</span></div>
-                    <div><span className="text-slate-400">ממוצע שערים שסופגים למשחק:</span> <span className="text-slate-200">{team.avgGoalsConcededPerGame}</span></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
       )}
 
 
@@ -1167,6 +1108,7 @@ const App: React.FC = () => {
                 <tr>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 draft-checkbox-column text-center">Draft?</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 name-column">Name</th>
+                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center player-number-column">#</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Wins/Losses</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Goals/Assists</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center positions-column">Positions</th>
@@ -1196,6 +1138,7 @@ const App: React.FC = () => {
                         />
                     </td>
                     <td className="p-3 text-slate-200 name-column whitespace-nowrap">{player.name}</td>
+                    <td className="p-3 text-slate-200 text-center">{player.player_num || '-'}</td>
                     <td className="p-3 text-center font-medium">
                         <span className="text-green-400">{player.wins}</span>
                         <span className="text-slate-500">/</span>
