@@ -7,6 +7,7 @@ export enum PlayerPosition {
 export interface Player {
   id: string;
   name: string;
+  player_num: number; // 0-99
   rating: number; // 1-5
   positions: PlayerPosition[]; // Player can play multiple positions
   wins: number;
