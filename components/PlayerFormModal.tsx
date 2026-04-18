@@ -3,6 +3,7 @@ import { PlayerPosition, PlayerFormModalProps, Player } from '../types';
 
 const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSavePlayer, editingPlayer, existingPlayerNames }) => {
   const [name, setName] = useState('');
+  const [player_num, setPlayerNumber] = useState<number>(0);
   const [rating, setRating] = useState<number>(3);
   const [selectedPositions, setSelectedPositions] = useState<PlayerPosition[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -13,10 +14,12 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
     if (isOpen) {
       if (isEditMode && editingPlayer) {
         setName(editingPlayer.name);
+        setPlayerNumber(editingPlayer.player_num);
         setRating(editingPlayer.rating);
         setSelectedPositions(editingPlayer.positions || []);
       } else {
         setName('');
+        setPlayerNumber(0);
         setRating(3);
         setSelectedPositions([PlayerPosition.MID]); // Default to Midfielder or empty
       }
@@ -50,6 +53,10 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
       return;
     }
 
+    if (player_num < 0 || player_num > 99) {
+      setError('Player number must be between 0 and 99.');
+      return;
+    }
     if (rating < 0.5 || rating > 5) {
       setError('Rating must be between 0.5 and 5.');
       return;
@@ -61,6 +68,7 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
 
     const playerData: Omit<Player, 'id' | 'wins' | 'losses' | 'isIncludedInDraft' | 'goals' | 'assists' | 'gamesPlayed'> = {
       name: name.trim(),
+      player_num,
       rating,
       positions: selectedPositions,
     };
@@ -87,6 +95,19 @@ const PlayerFormModal: React.FC<PlayerFormModalProps> = ({ isOpen, onClose, onSa
               onChange={(e) => setName(e.target.value)}
               className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-slate-100 placeholder-slate-400"
               placeholder="e.g., Alex Morgan"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label htmlFor="playerNumber" className="block text-sm font-medium text-slate-300 mb-1">Player Number</label>
+            <input
+              type="number"
+              id="playerNumber"
+              value={player_num}
+              onChange={(e) => setPlayerNumber(parseInt(e.target.value) || 0)}
+              min="0"
+              max="99"
+              className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none text-slate-100"
               required
             />
           </div>
