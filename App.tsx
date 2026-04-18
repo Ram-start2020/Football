@@ -12,6 +12,7 @@ import AuthModal from './components/AuthModal';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database } from './lib/database.types';
+import { Analytics } from '@vercel/analytics/react';
 
 type PlayerRow = Database['public']['Tables']['players']['Row'];
 type PlayerInsert = Database['public']['Tables']['players']['Insert'];
@@ -1196,6 +1197,7 @@ const App: React.FC = () => {
       <footer className="mt-12 pt-8 border-t border-slate-700 text-center">
         <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 3.6 - Game Modes</p>
       </footer>
+      <Analytics />
     </div>
   );
 };
