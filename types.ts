@@ -16,6 +16,7 @@ export interface Player {
   assists: number;
   gamesPlayed: number;
   isIncludedInDraft?: boolean; // True if player is included in team generation
+  points?: number; // Calculated: wins*3 + draws*1
 }
 
 // Represents a player assigned to a team, with a specific role for that team
