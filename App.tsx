@@ -815,9 +815,10 @@ const App: React.FC = () => {
             .player-roster-table .action-button { padding: 0.25rem 0.5rem; font-size: 0.7rem; }
             .player-roster-table .star-column { min-width: 80px; } 
             .player-roster-table .positions-column { min-width: 120px; } 
-            .player-roster-table .name-column { min-width: 120px; }
+            .player-roster-table .name-column { min-width: 100px; }
             .player-roster-table .draft-checkbox-column { min-width: 60px; }
             .player-roster-table .player-number-column { min-width: 50px; }
+            .player-roster-table .points-column { min-width: 60px; }
         }
         .player-roster-table .positions-column .flex > span:not(:last-child) { margin-right: 0.35rem; } 
         .player-roster-table tr.excluded-from-draft td:not(.actions-column):not(.draft-checkbox-cell) { opacity: 0.6; } 
@@ -1108,8 +1109,9 @@ const App: React.FC = () => {
               <thead className="bg-slate-700/80">
                 <tr>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 draft-checkbox-column text-center">Draft?</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 name-column">Name</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center player-number-column">#</th>
+                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 name-column">Name</th>
+                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center points-column">Points</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Wins/Losses</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Goals/Assists</th>
                   <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center positions-column">Positions</th>
@@ -1122,12 +1124,16 @@ const App: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {sortedPlayers.map(player => (
+                {sortedPlayers.map(player => {
+                  const draws = player.gamesPlayed - player.wins - player.losses;
+                  const points = player.wins * 3 + draws * 1;
+                  
+                  return (
                   <tr 
                     key={player.id} 
                     className={`transition-colors duration-150 ${player.isIncludedInDraft ? 'hover:bg-slate-700/40' : 'excluded-from-draft hover:bg-slate-700/30'}`}
                   >
-                    <td className="p-3 text-center draft-checkbox-cell">
+                    <td className="p-3 text-center">
                         <input 
                             type="checkbox"
                             className="draft-checkbox accent-sky-500 bg-slate-600 border-slate-500 rounded focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1138,8 +1144,9 @@ const App: React.FC = () => {
                             title={teams.length > 0 ? "Clear teams to change draft status" : (player.isIncludedInDraft ? "Exclude from draft" : "Include in draft")}
                         />
                     </td>
-                    <td className="p-3 text-slate-200 name-column whitespace-nowrap">{player.name}</td>
                     <td className="p-3 text-slate-200 text-center">{player.player_num || '-'}</td>
+                    <td className="p-3 text-slate-200 name-column whitespace-nowrap">{player.name}</td>
+                    <td className="p-3 text-slate-200 text-center font-medium">{points}</td>
                     <td className="p-3 text-center font-medium">
                         <span className="text-green-400">{player.wins}</span>
                         <span className="text-slate-500">/</span>
@@ -1187,7 +1194,8 @@ const App: React.FC = () => {
                       </>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
