@@ -535,6 +535,16 @@ const App: React.FC = () => {
     }));
   }, []);
 
+  const handleRemoveMatch = useCallback((matchId: string) => {
+    if (allMatchesFinalized) {
+      showFlashNotification('error', 'Cannot remove matches after game day is finalized.');
+      return;
+    }
+    
+    setMatches(prevMatches => prevMatches.filter(m => m.id !== matchId));
+    showFlashNotification('info', 'Match removed successfully.');
+  }, [allMatchesFinalized]);
+
 
   const calculateTeamStats = useCallback((matches: Match[], teams: Team[]) => {
   const teamStats = teams.map(team => {
@@ -1082,6 +1092,7 @@ const App: React.FC = () => {
                   teams={teams} 
                   onAddGoal={handleAddGoal}
                   onRemoveGoal={handleRemoveGoal}
+                  onRemoveMatch={handleRemoveMatch}
                   isFinalized={allMatchesFinalized}
                 />
               ))}
