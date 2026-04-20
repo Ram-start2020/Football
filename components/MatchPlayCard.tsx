@@ -1,6 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { Match, Team, MatchPlayCardProps, Player, GoalEvent } from '../types';
+
+interface MatchPlayCardPropsExtended extends MatchPlayCardProps {
+  onRemoveMatch?: (matchId: string) => void;
+}
 
 interface AddGoalFormProps {
     team: Team;
@@ -56,7 +59,7 @@ const AddGoalForm: React.FC<AddGoalFormProps> = ({ team, onAddGoal, onCancel }) 
 };
 
 
-const MatchPlayCard: React.FC<MatchPlayCardProps> = ({ match, teams, onAddGoal, onRemoveGoal, isFinalized }) => {
+const MatchPlayCard: React.FC<MatchPlayCardPropsExtended> = ({ match, teams, onAddGoal, onRemoveGoal, onRemoveMatch, isFinalized }) => {
   const [addingGoalFor, setAddingGoalFor] = useState<string | null>(null);
 
   const team1 = teams.find(t => t.name === match.team1Name);
@@ -105,7 +108,16 @@ const MatchPlayCard: React.FC<MatchPlayCardProps> = ({ match, teams, onAddGoal, 
   }
 
   return (
-    <div className="bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 flex flex-col">
+    <div className="bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 flex flex-col relative">
+      {!isFinalized && onRemoveMatch && (
+        <button
+          onClick={() => onRemoveMatch(match.id)}
+          className="absolute top-2 right-2 text-red-500 hover:text-red-400 font-bold text-lg leading-none w-6 h-6 rounded-full bg-slate-700/50 hover:bg-slate-700/80 flex items-center justify-center transition-colors duration-150"
+          title="Remove match"
+        >
+          ×
+        </button>
+      )}
       <div className="flex justify-around items-center mb-2">
         <h4 className={`text-lg font-semibold text-center truncate w-2/5 ${teamNameColor[team1.name] || 'text-slate-300'}`}>
           {team1.name}
