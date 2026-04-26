@@ -750,17 +750,25 @@ const App: React.FC = () => {
   const handleOpenLoginModal = () => setShowAuthModal(true);
 
   const sortedPlayers = [...players].sort((a, b) => {
-    // Primary sort: wins descending
+    // Calculate points for both players
+    const aDraws = a.gamesPlayed - a.wins - a.losses;
+    const bDraws = b.gamesPlayed - b.wins - b.losses;
+    const aPoints = a.wins * 3 + aDraws * 1;
+    const bPoints = b.wins * 3 + bDraws * 1;
+    
+    // Primary sort: points descending
+    if (bPoints !== aPoints) {
+      return bPoints - aPoints;
+    }
+    // Secondary sort: wins descending
     if (b.wins !== a.wins) {
       return b.wins - a.wins;
     }
-    // Secondary sort: goals + assists descending
-    const totalGoalsAndAssistsA = a.goals + a.assists;
-    const totalGoalsAndAssistsB = b.goals + b.assists;
-    if (totalGoalsAndAssistsB !== totalGoalsAndAssistsA) {
-      return totalGoalsAndAssistsB - totalGoalsAndAssistsA;
+    // Tertiary sort: goals descending
+    if (b.goals !== a.goals) {
+      return b.goals - a.goals;
     }
-    // Tertiary sort: name ascending for stability
+    // Final sort: name ascending
     return a.name.localeCompare(b.name);
   });
 
