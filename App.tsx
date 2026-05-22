@@ -142,6 +142,12 @@ const App: React.FC = () => {
   const teamSize = gameMode;
   const requiredPlayersTotal = teamSize * NUM_TEAMS;
 
+  // Voice control state
+  const [isListening, setIsListening] = useState(false);
+  const [recognizedText, setRecognizedText] = useState<string>('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [recognition, setRecognition] = useState<any>(null);
+
   const participatingPlayerCount = useMemo(() => {
     return players.filter(p => p.isIncludedInDraft).length;
   }, [players]);
@@ -319,6 +325,90 @@ const App: React.FC = () => {
         )
     );
   }, [teams.length]);
+
+  // Voice control implementation
+  const setupVoiceRecognition = useCallback(() => {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      if (SpeechRecognition) {
+        const recog = new SpeechRecognition();
+        recog.continuous = false;
+        recog.interimResults = false;
+        recog.lang = 'he-IL'; // Hebrew language support
+
+        recog.onstart = () => {
+          setIsListening(true);
+          setVoiceError(null);
+          setRecognizedText('');
+        };
+
+        recog.onend = () => {
+          setIsListening(false);
+        };
+
+        recog.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setRecognizedText(transcript);
+          processVoiceCommand(transcript);
+        };
+
+        recog.onerror = (event: any) => {
+          setIsListening(false);
+          setVoiceError(`Voice recognition error: ${event.error}`);
+          showFlashNotification('error', `Voice recognition error: ${event.error}`);
+        };
+
+        setRecognition(recog);
+        return recog;
+      }
+    }
+    setVoiceError('Voice recognition not supported in this browser');
+    showFlashNotification('error', 'Voice recognition not supported. Please use Chrome or Edge.');
+    return null;
+  }, []);
+
+  const processVoiceCommand = useCallback((transcript: string) => {
+    const normalizedText = transcript.toLowerCase().trim();
+    
+    // Find matching player name (fuzzy match for Hebrew)
+    const matchedPlayer = players.find(player => {
+      const playerName = player.name.toLowerCase();
+      // Check for exact match or partial match
+      return playerName.includes(normalizedText) || normalizedText.includes(playerName);
+    });
+
+    if (matchedPlayer) {
+      if (teams.length > 0) {
+        showFlashNotification('error', 'Cannot change draft status after teams are generated');
+        return;
+      }
+      handleTogglePlayerDraftInclusion(matchedPlayer.id);
+      const status = matchedPlayer.isIncludedInDraft ? 'excluded from' : 'included in';
+      showFlashNotification('success', `${matchedPlayer.name} ${status} draft`);
+    } else {
+      showFlashNotification('error', `No player found matching: "${transcript}"`);
+    }
+  }, [players, teams.length, handleTogglePlayerDraftInclusion]);
+
+  const toggleVoiceRecognition = useCallback(() => {
+    if (!recognition) {
+      const recog = setupVoiceRecognition();
+      if (recog) {
+        recog.start();
+      }
+    } else {
+      if (isListening) {
+        recognition.stop();
+      } else {
+        recognition.start();
+      }
+    }
+  }, [recognition, isListening, setupVoiceRecognition]);
+
+  // Initialize voice recognition on mount
+  useEffect(() => {
+    setupVoiceRecognition();
+  }, [setupVoiceRecognition]);
 
   const generateTeams = useCallback(() => {
     const currentDraftablePlayers = players.filter(p => p.isIncludedInDraft);
@@ -1112,13 +1202,46 @@ const App: React.FC = () => {
       <section className="bg-slate-800/50 p-4 sm:p-6 rounded-xl shadow-xl">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-semibold text-sky-300">Player Roster ({players.length})</h2>
-            {teams.length === 0 && (
-                <span className={`text-sm px-3 py-1 rounded-full
-                                 ${participatingPlayerCount === requiredPlayersTotal ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
-                    Selected for Draft: {participatingPlayerCount} / {requiredPlayersTotal}
-                </span>
-            )}
+            <div className="flex items-center gap-4">
+                {teams.length === 0 && (
+                    <span className={`text-sm px-3 py-1 rounded-full
+                                     ${participatingPlayerCount === requiredPlayersTotal ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
+                        Selected for Draft: {participatingPlayerCount} / {requiredPlayersTotal}
+                    </span>
+                )}
+                <button
+                    onClick={toggleVoiceRecognition}
+                    className={`p-2 rounded-full transition-all duration-200 ${
+                        isListening 
+                            ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                            : 'bg-slate-600 hover:bg-slate-500'
+                    } text-white shadow-md`}
+                    title={isListening ? 'Stop voice control' : 'Start voice control - speak player names to toggle draft'}
+                    disabled={teams.length > 0}
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {isListening ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        )}
+                    </svg>
+                </button>
+            </div>
         </div>
+        {isListening && (
+            <div className="mb-4 p-3 bg-sky-900/30 border border-sky-500/50 rounded-lg">
+                <p className="text-sky-300 text-sm font-medium">🎤 Listening... Speak a player name to toggle draft status</p>
+                {recognizedText && (
+                    <p className="text-slate-300 text-xs mt-1">Recognized: "{recognizedText}"</p>
+                )}
+            </div>
+        )}
+        {voiceError && (
+            <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded-lg">
+                <p className="text-red-300 text-sm">{voiceError}</p>
+            </div>
+        )}
 
         {players.length === 0 ? (
           <p className="text-center text-slate-400 py-4">No players. Add some to get started!</p>
