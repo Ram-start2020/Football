@@ -368,14 +368,44 @@ const App: React.FC = () => {
   }, []);
 
   const processVoiceCommand = useCallback((transcript: string) => {
-    const normalizedText = transcript.toLowerCase().trim();
+    // Normalize Hebrew text: remove extra spaces, remove niqqud (vowel marks), handle special characters
+    const normalizeHebrew = (text: string) => {
+      return text
+        .trim()
+        .replace(/\s+/g, ' ') // Remove extra spaces
+        .replace(/[\u05B0-\u05BD\u05C1\u05C2\u05C4\u05C5\u05C7]/g, '') // Remove Hebrew niqqud
+        .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '') // Keep only Hebrew, English, numbers, and spaces
+        .toLowerCase();
+    };
+
+    const normalizedTranscript = normalizeHebrew(transcript);
     
-    // Find matching player name (fuzzy match for Hebrew)
-    const matchedPlayer = players.find(player => {
-      const playerName = player.name.toLowerCase();
-      // Check for exact match or partial match
-      return playerName.includes(normalizedText) || normalizedText.includes(playerName);
-    });
+    // Find matching player name with improved fuzzy matching
+    let matchedPlayer = null;
+    let bestMatchScore = 0;
+
+    for (const player of players) {
+      const playerName = normalizeHebrew(player.name);
+      
+      // Exact match
+      if (playerName === normalizedTranscript) {
+        matchedPlayer = player;
+        break;
+      }
+      
+      // Partial match - check if transcript contains player name or vice versa
+      if (playerName.includes(normalizedTranscript) || normalizedTranscript.includes(playerName)) {
+        matchedPlayer = player;
+        break;
+      }
+      
+      // Fuzzy matching - calculate similarity score
+      const similarity = calculateSimilarity(normalizedTranscript, playerName);
+      if (similarity > bestMatchScore && similarity > 0.6) { // 60% similarity threshold
+        bestMatchScore = similarity;
+        matchedPlayer = player;
+      }
+    }
 
     if (matchedPlayer) {
       if (teams.length > 0) {
@@ -386,9 +416,40 @@ const App: React.FC = () => {
       const status = matchedPlayer.isIncludedInDraft ? 'excluded from' : 'included in';
       showFlashNotification('success', `${matchedPlayer.name} ${status} draft`);
     } else {
-      showFlashNotification('error', `No player found matching: "${transcript}"`);
+      showFlashNotification('error', `No player found matching: "${transcript}" (normalized: "${normalizedTranscript}")`);
     }
   }, [players, teams.length, handleTogglePlayerDraftInclusion]);
+
+  // Helper function to calculate string similarity (Levenshtein distance-based)
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    if (str1 === str2) return 1;
+    if (str1.length === 0 || str2.length === 0) return 0;
+    
+    const matrix = [];
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    const maxLength = Math.max(str1.length, str2.length);
+    return 1 - matrix[str2.length][str1.length] / maxLength;
+  };
 
   const toggleVoiceRecognition = useCallback(() => {
     if (!recognition) {
