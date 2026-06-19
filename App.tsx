@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Player, PlayerPosition, Team, Match, PlayerInTeam } from './types';
-import { INITIAL_PLAYERS_DATA, POSITIONS_PER_TEAM, TOTAL_POSITIONS_NEEDED, TEAM_NAMES, NUM_TEAMS } from './constants';
+import { INITIAL_PLAYERS_DATA, TEAM_NAMES, NUM_TEAMS } from './constants';
 import PlayerFormModal from './components/PlayerFormModal';
 import TeamCard from './components/TeamCard';
 import MatchPlayCard from './components/MatchPlayCard';
@@ -27,28 +27,9 @@ function fisherYatesShuffle<T>(array: T[]): T[] {
   return newArray;
 }
 
-// Sorts players for assignment:
-// 1. Prioritizes players with fewer positions (less versatile).
-// 2. If equally versatile, prioritizes higher rating (with randomness for tie-breaking).
-const sortPlayersForAssignment = (a: Player, b: Player) => {
-    const aPositionsCount = a.positions.length;
-    const bPositionsCount = b.positions.length;
-
-    if (aPositionsCount !== bPositionsCount) {
-        return aPositionsCount - bPositionsCount; // Ascending by number of positions
-    }
-    const ratingA = a.rating + (Math.random() - 0.5) * 0.01;
-    const ratingB = b.rating + (Math.random() - 0.5) * 0.01;
-    return ratingB - ratingA;
-};
 
 const calculateTeamTotalRating = (team: Team): number => {
   return team.players.reduce((sum, player) => sum + player.rating, 0);
-};
-
-const calculateAverageTeamRating = (team: Team): number => {
-  if (team.players.length === 0) return 0;
-  return calculateTeamTotalRating(team) / team.players.length;
 };
 
 const calculateBalanceScore = (teams: Team[]): number => {
@@ -117,49 +98,6 @@ function fineTuneTeamBalance(
     return currentBestTeams;
 }
 
-// Distributes extra players to teams after core assignment
-// Ensures team size difference ≤ 1 and rating balance is maintained
-function distributeExtraPlayers(
-    coreTeams: Team[],
-    remainingPlayers: Player[]
-): Team[] {
-    const teamsWithExtra = JSON.parse(JSON.stringify(coreTeams)) as Team[];
-    
-    if (remainingPlayers.length === 0) return teamsWithExtra;
-
-    // Sort remaining players by rating (highest first)
-    const sortedRemainingPlayers = [...remainingPlayers].sort((a, b) => b.rating - a.rating);
-
-    // Assign each remaining player to the team with the lowest average rating
-    for (const player of sortedRemainingPlayers) {
-        // Find team with lowest average rating
-        let lowestAvgTeamIndex = 0;
-        let lowestAvgRating = calculateAverageTeamRating(teamsWithExtra[0]);
-
-        for (let i = 1; i < teamsWithExtra.length; i++) {
-            const avgRating = calculateAverageTeamRating(teamsWithExtra[i]);
-            if (avgRating < lowestAvgRating) {
-                lowestAvgRating = avgRating;
-                lowestAvgTeamIndex = i;
-            }
-        }
-
-        // Get preferred position for the player
-        const getPreferredPosition = (p: Player): PlayerPosition => {
-            if (p.positions.includes(PlayerPosition.MID)) return PlayerPosition.MID;
-            if (p.positions.includes(PlayerPosition.FW)) return PlayerPosition.FW;
-            return p.positions[0] || PlayerPosition.DF;
-        };
-
-        // Add player to the selected team
-        teamsWithExtra[lowestAvgTeamIndex].players.push({
-            ...player,
-            assignedPositionOnTeam: getPreferredPosition(player)
-        });
-    }
-
-    return teamsWithExtra;
-}
 
 const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -186,8 +124,6 @@ const App: React.FC = () => {
   const [gameDayStats, setGameDayStats] = useState<any>([]);
   const isAdmin = !!session;
 
-  // Minimum 19 players required (18 core + 1 extra for flexibility)
-  const MIN_PLAYERS_FOR_DRAFT = NUM_TEAMS * 6 + 1; // 19 players minimum
 
   const participatingPlayerCount = useMemo(() => {
     return players.filter(p => p.isIncludedInDraft).length;
@@ -251,7 +187,7 @@ const App: React.FC = () => {
         } else {
             const { data: newData, error: newError } = await supabase.from('players').select('*').order('name', { ascending: true });
             if (newData) {
-                setPlayers((newData as unknown as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, player_num: p.player_num ?? 0, isIncludedInDraft: true, positions: p[...]
+                setPlayers((newData as unknown as PlayerRow[]).map((p: PlayerRow) => ({...p, gamesPlayed: p.games_played ?? 0, player_num: p.player_num ?? 0, isIncludedInDraft: true, positions: p.positions as PlayerPosition[]})));
                 showFlashNotification('success', 'Database seeded successfully!');
             }
             if (newError) {
@@ -329,7 +265,7 @@ const App: React.FC = () => {
       }
       if (data) {
           const newPlayerFromDb: PlayerRow = (data as PlayerRow[])[0];
-          const newPlayer: Player = { ...newPlayerFromDb, gamesPlayed: newPlayerFromDb.games_played ?? 0, player_num: newPlayerFromDb.player_num ?? 0, positions: newPlayerFromDb.positions as Play[...]
+          const newPlayer: Player = { ...newPlayerFromDb, gamesPlayed: newPlayerFromDb.games_played ?? 0, player_num: newPlayerFromDb.player_num ?? 0, positions: newPlayerFromDb.positions as PlayerPosition[], isIncludedInDraft: true };
           setPlayers(prev => [...prev, newPlayer].sort((a,b) => a.name.localeCompare(b.name)));
           showFlashNotification('success', `${newPlayer.name} added to the roster.`);
       }
@@ -370,104 +306,100 @@ const App: React.FC = () => {
   const generateTeams = useCallback(() => {
     const currentDraftablePlayers = players.filter(p => p.isIncludedInDraft);
 
-    if (currentDraftablePlayers.length < MIN_PLAYERS_FOR_DRAFT) {
-      showFlashNotification('error', `Please select at least ${MIN_PLAYERS_FOR_DRAFT} players for the draft. Currently ${currentDraftablePlayers.length} selected.`);
+    if (currentDraftablePlayers.length < 3) {
+      showFlashNotification('error', `Please select at least 3 players for the draft. Currently ${currentDraftablePlayers.length} selected.`);
       return;
     }
 
-    const uniquePlayersPerPosition: Record<PlayerPosition, Set<string>> = {
-        [PlayerPosition.DF]: new Set(),
-        [PlayerPosition.MID]: new Set(),
-        [PlayerPosition.FW]: new Set(),
-    };
-    currentDraftablePlayers.forEach(player => {
-        player.positions.forEach(pos => {
-            uniquePlayersPerPosition[pos].add(player.id);
-        });
-    });
-
-    for (const pos of Object.values(PlayerPosition)) {
-        if (uniquePlayersPerPosition[pos].size < TOTAL_POSITIONS_NEEDED[pos]) {
-            showFlashNotification('error', `Not enough unique players capable of playing ${pos} for the core positions. Need ${TOTAL_POSITIONS_NEEDED[pos]}, but only ${uniquePlayersPerPosition[po[...]
-            return;
-        }
-    }
+    // Calculate team sizes with max 1 player difference
+    const totalPlayers = currentDraftablePlayers.length;
+    const baseSize = Math.floor(totalPlayers / NUM_TEAMS);
+    const extraPlayers = totalPlayers % NUM_TEAMS;
     
-    const positionScarcityData = (Object.values(PlayerPosition) as PlayerPosition[]).map(posKey => ({
-        pos: posKey,
-        scarcity: uniquePlayersPerPosition[posKey].size / (TOTAL_POSITIONS_NEEDED[posKey] || 1) 
-    })).sort((a, b) => a.scarcity - b.scarcity); 
+    const teamSizes = TEAM_NAMES.map((_, index) => baseSize + (index < extraPlayers ? 1 : 0));
 
-    const dynamicPositionFillOrder = positionScarcityData.map(item => item.pos);
-
-    const MAX_ATTEMPTS = 50; 
+    const MAX_ATTEMPTS = 100;
     let bestGeneratedTeams: Team[] | null = null;
     let bestBalanceScore = Infinity;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        let assignablePlayersThisAttempt = fisherYatesShuffle(currentDraftablePlayers); 
-
-        const fwPool = assignablePlayersThisAttempt.filter(p => p.positions.includes(PlayerPosition.FW)).sort(sortPlayersForAssignment);
-        const midPool = assignablePlayersThisAttempt.filter(p => p.positions.includes(PlayerPosition.MID)).sort(sortPlayersForAssignment);
-        const dfPool = assignablePlayersThisAttempt.filter(p => p.positions.includes(PlayerPosition.DF)).sort(sortPlayersForAssignment);
-
-        let newTeamsProtoThisAttempt: Team[] = TEAM_NAMES.map(name => ({ name, players: [] as PlayerInTeam[] }));
+        let shuffledPlayers = fisherYatesShuffle<Player>(currentDraftablePlayers);
+        let newTeamsProtoThisAttempt: Team[] = TEAM_NAMES.map(name => ({ 
+            name, 
+            players: [] as PlayerInTeam[] 
+        }));
         const assignedPlayerIdsThisAttempt = new Set<string>();
         let currentAttemptFailed = false;
-        
-        // Step 1: Assign core 18 players (6 per team)
-        for (const currentPosToFill of dynamicPositionFillOrder) {
-            if (currentAttemptFailed) break;
-            const numSlotsPerTeamForPos = POSITIONS_PER_TEAM[currentPosToFill];
-            let playerPoolForCurrentPos: Player[];
 
-            if (currentPosToFill === PlayerPosition.FW) playerPoolForCurrentPos = fwPool;
-            else if (currentPosToFill === PlayerPosition.MID) playerPoolForCurrentPos = midPool;
-            else playerPoolForCurrentPos = dfPool;
-
-            for (let slotIndex = 0; slotIndex < numSlotsPerTeamForPos; slotIndex++) {
+        // Assign players to teams based on calculated sizes
+        for (let teamIdx = 0; teamIdx < NUM_TEAMS; teamIdx++) {
+            const targetSize = teamSizes[teamIdx];
+            const team = newTeamsProtoThisAttempt[teamIdx];
+            
+            for (let slotIndex = 0; slotIndex < targetSize; slotIndex++) {
                 if (currentAttemptFailed) break;
-                for (let teamIdx = 0; teamIdx < NUM_TEAMS; teamIdx++) {
-                    if (currentAttemptFailed) break;
-                    const team = newTeamsProtoThisAttempt[teamIdx];
-                    let playerAssignedToSlot = false;
+                
+                // Find best available player for rating balance
+                let bestPlayer: Player | null = null;
+                let bestPlayerScore = Infinity;
+                
+                for (const player of shuffledPlayers) {
+                    if (assignedPlayerIdsThisAttempt.has(player.id)) continue;
                     
-                    for (const player of playerPoolForCurrentPos) {
-                        if (!assignedPlayerIdsThisAttempt.has(player.id)) {
-                            team.players.push({ ...player, assignedPositionOnTeam: currentPosToFill });
-                            assignedPlayerIdsThisAttempt.add(player.id);
-                            playerAssignedToSlot = true;
-                            break; 
-                        }
+                    // Calculate potential team rating if we add this player
+                    const currentTeamRating = calculateTeamTotalRating(team);
+                    const potentialTeamRating = currentTeamRating + player.rating;
+                    
+                    // Calculate average rating of all teams so far (including this one)
+                    const allTeamRatings = newTeamsProtoThisAttempt.map(t => calculateTeamTotalRating(t));
+                    allTeamRatings[teamIdx] = potentialTeamRating;
+                    const avgRating = allTeamRatings.reduce((sum, r) => sum + r, 0) / NUM_TEAMS;
+                    
+                    // Score is how far this team's rating would be from average
+                    const score = Math.abs(potentialTeamRating - avgRating);
+                    
+                    if (score < bestPlayerScore) {
+                        bestPlayerScore = score;
+                        bestPlayer = player;
                     }
-                    if (!playerAssignedToSlot) {
-                        currentAttemptFailed = true;
-                    }
+                }
+                
+                if (bestPlayer) {
+                    // Assign preferred position
+                    const getPreferredPosition = (player: Player): PlayerPosition => {
+                        if (player.positions.includes(PlayerPosition.MID)) return PlayerPosition.MID;
+                        if (player.positions.includes(PlayerPosition.FW)) return PlayerPosition.FW;
+                        return player.positions[0] || PlayerPosition.DF;
+                    };
+                    
+                    team.players.push({
+                        ...bestPlayer,
+                        assignedPositionOnTeam: getPreferredPosition(bestPlayer)
+                    });
+                    assignedPlayerIdsThisAttempt.add(bestPlayer.id);
+                } else {
+                    currentAttemptFailed = true;
                 }
             }
         }
         
-        if (currentAttemptFailed || assignedPlayerIdsThisAttempt.size !== (NUM_TEAMS * 6)) {
-            continue; 
+        if (currentAttemptFailed || assignedPlayerIdsThisAttempt.size !== totalPlayers) {
+            continue;
         }
-
-        // Step 2: Distribute remaining players to teams based on rating balance
-        const remainingPlayers = currentDraftablePlayers.filter(p => !assignedPlayerIdsThisAttempt.has(p.id));
-        const teamsWithExtraPlayers = distributeExtraPlayers(newTeamsProtoThisAttempt, remainingPlayers);
         
-        const currentBalanceScore = calculateBalanceScore(teamsWithExtraPlayers);
+        const currentBalanceScore = calculateBalanceScore(newTeamsProtoThisAttempt);
         if (currentBalanceScore < bestBalanceScore) {
             bestBalanceScore = currentBalanceScore;
-            bestGeneratedTeams = teamsWithExtraPlayers;
+            bestGeneratedTeams = newTeamsProtoThisAttempt;
         }
     }
 
     if (bestGeneratedTeams) {
         bestGeneratedTeams = fineTuneTeamBalance(bestGeneratedTeams);
-        bestBalanceScore = calculateBalanceScore(bestGeneratedTeams); 
+        bestBalanceScore = calculateBalanceScore(bestGeneratedTeams);
 
         bestGeneratedTeams.forEach(team => {
-            team.players = fisherYatesShuffle(team.players); 
+            team.players = fisherYatesShuffle(team.players);
         });
         setTeams(bestGeneratedTeams);
         setTeamsConfirmed(false);
@@ -479,8 +411,8 @@ const App: React.FC = () => {
         setAddMatchError(null);
         showFlashNotification('success', `Team proposals generated! (Balance Score: ${bestBalanceScore.toFixed(0)})`);
     } else {
-        showFlashNotification('error', `Could not generate balanced teams after ${MAX_ATTEMPTS} attempts. The selected players might not cover all team position needs adequately.`);
-        setTeams([]); 
+        showFlashNotification('error', `Could not generate balanced teams after ${MAX_ATTEMPTS} attempts.`);
+        setTeams([]);
     }
   }, [players, participatingPlayerCount]); 
 
@@ -721,8 +653,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenManualEdit = () => {
-    if (draftablePlayersList.length < MIN_PLAYERS_FOR_DRAFT) {
-        showFlashNotification('error', `Manual edit requires at least ${MIN_PLAYERS_FOR_DRAFT} players selected for draft.`);
+    if (draftablePlayersList.length < 3) {
+        showFlashNotification('error', `Manual edit requires at least 3 players selected for draft.`);
         return;
     }
     const teamsToEdit = teams.length === NUM_TEAMS 
@@ -734,17 +666,18 @@ const App: React.FC = () => {
   };
 
   const handleSaveManualTeams = (manuallyEditedTeams: Team[]) => {
-    // Manual edit: No team size constraints, only check all players are assigned once
-    const allPlayerIdsInManualTeams = manuallyEditedTeams.flatMap(t => t.players.map(p => p.id));
-    const uniquePlayerIds = new Set(allPlayerIdsInManualTeams);
-
-    if (uniquePlayerIds.size !== allPlayerIdsInManualTeams.length) {
-        showFlashNotification('error', 'Players must be unique across all teams. Cannot assign a player to multiple teams.');
-        return;
+    let totalPlayersInManualTeams = 0;
+    for(const team of manuallyEditedTeams) {
+        if(team.players.length === 0) {
+            showFlashNotification('error', `Each team must have at least 1 player. ${team.name} has ${team.players.length}.`);
+            return;
+        }
+        totalPlayersInManualTeams += team.players.length;
     }
 
-    if (uniquePlayerIds.size !== draftablePlayersList.length) {
-        showFlashNotification('error', `All ${draftablePlayersList.length} selected players must be assigned to teams.`);
+    const allPlayerIdsInManualTeams = manuallyEditedTeams.flatMap(t => t.players.map(p => p.id));
+    if (new Set(allPlayerIdsInManualTeams).size !== totalPlayersInManualTeams) {
+        showFlashNotification('error', `Players must be unique across all teams.`);
         return;
     }
 
@@ -814,8 +747,8 @@ const App: React.FC = () => {
   }
   
   const availableTeamsForNewMatch2 = TEAM_NAMES.filter(name => name !== selectedTeam1ForNewMatch);
-  const canGenerateTeams = participatingPlayerCount >= MIN_PLAYERS_FOR_DRAFT;
-  const canManuallyEdit = participatingPlayerCount >= MIN_PLAYERS_FOR_DRAFT;
+  const canGenerateTeams = participatingPlayerCount >= 3;
+  const canManuallyEdit = participatingPlayerCount >= 3;
 
 
   if (isLoading) {
@@ -870,7 +803,7 @@ const App: React.FC = () => {
                     </button>
                 </div>
             ) : (
-                <button onClick={handleOpenLoginModal} className="px-4 py-2 text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-lg shadow-md transition transform hover:scale-105"[...]
+                <button onClick={handleOpenLoginModal} className="px-4 py-2 text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-lg shadow-md transition transform hover:scale-105">
                     Admin Login
                 </button>
             )}
@@ -879,10 +812,11 @@ const App: React.FC = () => {
         <p className="text-slate-400 mt-2 text-lg">Manage players, generate fair teams, and track your game day stats!</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
         <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary', !isAdmin)} disabled={!isAdmin} title={!isAdmin ? 'Admin login required' : 'Add a new player'}>
           Add New Player
         </button>
+
 
         {teams.length === 0 && (
           <div className="relative">
@@ -890,13 +824,13 @@ const App: React.FC = () => {
               onClick={generateTeams} 
               className={getButtonClass('success', !canGenerateTeams)}
               disabled={!canGenerateTeams}
-              title={!canGenerateTeams ? `Select at least ${MIN_PLAYERS_FOR_DRAFT} players for draft` : 'Generate balanced teams'}
+              title={!canGenerateTeams ? `Select at least 3 players for draft` : 'Generate balanced teams'}
             >
               Generate Teams
             </button>
             <span className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs px-2 py-0.5 rounded-full
-                             ${participatingPlayerCount >= MIN_PLAYERS_FOR_DRAFT ? 'bg-emerald-500/80' : 'bg-amber-500/80'} text-white`}>
-                Draft: {participatingPlayerCount} players
+                             ${participatingPlayerCount >= 3 ? 'bg-emerald-500/80' : 'bg-amber-500/80'} text-white`}>
+                Draft: {participatingPlayerCount}
             </span>
           </div>
         )}
@@ -905,7 +839,7 @@ const App: React.FC = () => {
                 onClick={handleOpenManualEdit}
                 className={getButtonClass('warning', !canManuallyEdit)}
                 disabled={!canManuallyEdit}
-                title={!canManuallyEdit ? `Select at least ${MIN_PLAYERS_FOR_DRAFT} players for draft first` : 'Manually create teams'}
+                title={!canManuallyEdit ? `Select at least 3 players for draft first` : 'Manually create teams'}
             >
                 Manual Edit Teams
             </button>
@@ -1117,8 +1051,8 @@ const App: React.FC = () => {
             <h2 className="text-3xl font-semibold text-sky-300">Player Roster ({players.length})</h2>
             {teams.length === 0 && (
                 <span className={`text-sm px-3 py-1 rounded-full
-                                 ${participatingPlayerCount >= MIN_PLAYERS_FOR_DRAFT ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
-                    Selected for Draft: {participatingPlayerCount} players
+                                 ${participatingPlayerCount >= 3 ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
+                    Selected for Draft: {participatingPlayerCount}
                 </span>
             )}
         </div>
