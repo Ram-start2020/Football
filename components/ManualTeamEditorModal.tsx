@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Player, PlayerPosition, Team, PlayerInTeam } from '../types';
 
@@ -25,13 +24,14 @@ const ManualTeamEditorModal: React.FC<ManualTeamEditorModalProps> = ({
   const initializeTeams = useCallback(() => {
     let teamsToEdit: Team[];
     if (initialTeams && initialTeams.length === teamNames.length && initialTeams.every(t => t.players)) {
-      // Use existing teams if available
       teamsToEdit = JSON.parse(JSON.stringify(initialTeams));
+      teamsToEdit.forEach(team => {
+        team.players = team.players.map(p => p ? ({...p, assignedPositionOnTeam: p.assignedPositionOnTeam || p.positions?.[0] || PlayerPosition.MID }) : null) as any[];
+      });
     } else {
-      // Create empty teams
       teamsToEdit = teamNames.map(name => ({
         name,
-        players: [] as PlayerInTeam[], 
+        players: [] as (PlayerInTeam | null)[],
       }));
     }
     setEditedTeams(teamsToEdit);
@@ -56,91 +56,80 @@ const ManualTeamEditorModal: React.FC<ManualTeamEditorModalProps> = ({
     return ids;
   }, [editedTeams]);
 
-  const unassignedPlayers = useMemo(() => {
-    return draftablePlayers.filter(p => !assignedPlayerIds.has(p.id));
-  }, [draftablePlayers, assignedPlayerIds]);
-
-  // Handle adding a player to a team
-  const handleAddPlayerToTeam = (teamIndex: number, playerId: string) => {
-    setError(null);
+  const handlePlayerChange = (teamIndex: number, slotIndex: number, playerId: string) => {
+    setError(null); 
     const newEditedTeams = JSON.parse(JSON.stringify(editedTeams)) as Team[];
-    const playerToAdd = draftablePlayers.find(p => p.id === playerId);
+    const playerToAssign = draftablePlayers.find(p => p.id === playerId);
 
-    if (!playerToAdd) return;
+    if (!playerToAssign) return;
 
-    // Remove player from any other team they might be in
+    // Remove player from any other slot they might be in
     for (let tIdx = 0; tIdx < newEditedTeams.length; tIdx++) {
-      newEditedTeams[tIdx].players = newEditedTeams[tIdx].players.filter(p => p.id !== playerId);
+      for (let sIdx = 0; sIdx < newEditedTeams[tIdx].players.length; sIdx++) {
+        if (newEditedTeams[tIdx].players[sIdx]?.id === playerId) {
+          // If it's not the current slot being targeted, clear it
+          if (tIdx !== teamIndex || sIdx !== slotIndex) {
+            // @ts-ignore
+            newEditedTeams[tIdx].players[sIdx] = null;
+          }
+        }
+      }
     }
-
-    // Add player to target team
-    const getPreferredPosition = (p: Player): PlayerPosition => {
-      if (p.positions.includes(PlayerPosition.MID)) return PlayerPosition.MID;
-      if (p.positions.includes(PlayerPosition.FW)) return PlayerPosition.FW;
-      return p.positions[0] || PlayerPosition.DF;
-    };
-
-    newEditedTeams[teamIndex].players.push({
-      ...playerToAdd,
-      assignedPositionOnTeam: getPreferredPosition(playerToAdd),
-    } as PlayerInTeam);
+    
+    // Assign player to the target slot
+    newEditedTeams[teamIndex].players[slotIndex] = {
+      ...playerToAssign,
+      assignedPositionOnTeam: playerToAssign.positions[0] || PlayerPosition.MID, // Default position
+    } as PlayerInTeam;
 
     setEditedTeams(newEditedTeams);
   };
 
-  // Handle removing a player from a team
-  const handleRemovePlayerFromTeam = (teamIndex: number, playerId: string) => {
-    setError(null);
+  const handlePositionChange = (teamIndex: number, slotIndex: number, position: PlayerPosition) => {
     const newEditedTeams = JSON.parse(JSON.stringify(editedTeams)) as Team[];
-    newEditedTeams[teamIndex].players = newEditedTeams[teamIndex].players.filter(p => p.id !== playerId);
-    setEditedTeams(newEditedTeams);
-  };
-
-  // Handle changing a player's position in a team
-  const handlePositionChange = (teamIndex: number, playerId: string, position: PlayerPosition) => {
-    const newEditedTeams = JSON.parse(JSON.stringify(editedTeams)) as Team[];
-    const playerIndex = newEditedTeams[teamIndex].players.findIndex(p => p.id === playerId);
-    if (playerIndex !== -1) {
-      newEditedTeams[teamIndex].players[playerIndex].assignedPositionOnTeam = position;
+    const playerInSlot = newEditedTeams[teamIndex].players[slotIndex];
+    if (playerInSlot) {
+      playerInSlot.assignedPositionOnTeam = position;
       setEditedTeams(newEditedTeams);
     }
+  };
+
+  const handleAddPlayerSlot = (teamIndex: number) => {
+    const newEditedTeams = JSON.parse(JSON.stringify(editedTeams)) as Team[];
+    newEditedTeams[teamIndex].players.push(null);
+    setEditedTeams(newEditedTeams);
+  };
+
+  const handleRemovePlayerSlot = (teamIndex: number, slotIndex: number) => {
+    const newEditedTeams = JSON.parse(JSON.stringify(editedTeams)) as Team[];
+    newEditedTeams[teamIndex].players.splice(slotIndex, 1);
+    setEditedTeams(newEditedTeams);
   };
 
   const handleSaveClick = () => {
     setError(null);
     const finalTeams: Team[] = [];
     const allAssignedPlayerIdsInSave = new Set<string>();
-    let totalAssignedCount = 0;
 
-    // Validate teams
     for (const team of editedTeams) {
       const currentTeamPlayers: PlayerInTeam[] = [];
-      
-      // Allow empty teams or teams with any number of players
+      if (team.players.length === 0) {
+        setError(`Team ${team.name} must have at least 1 player.`);
+        return;
+      }
       for (const player of team.players) {
         if (!player || !player.id || !player.assignedPositionOnTeam) {
-          setError(`Invalid player data in Team ${team.name}. All players must have a name and assigned position.`);
+          setError(`All slots in Team ${team.name} must be filled with a player and a position.`);
           return;
         }
         if (allAssignedPlayerIdsInSave.has(player.id)) {
-          setError(`Player ${player.name} is assigned multiple times. Each player can only be in one team.`);
+          setError(`Player ${player.name} is assigned multiple times. Each player can only be in one slot.`);
           return;
         }
         allAssignedPlayerIdsInSave.add(player.id);
         currentTeamPlayers.push(player as PlayerInTeam);
-        totalAssignedCount++;
       }
       finalTeams.push({ name: team.name, players: currentTeamPlayers });
-    }
-
-    // Check that all draftable players are assigned
-    if (totalAssignedCount !== draftablePlayers.length) {
-         setError(`Not all ${draftablePlayers.length} drafted players have been assigned to a team. Currently ${totalAssignedCount} assigned.`);
-         return;
-    }
-    if (allAssignedPlayerIdsInSave.size !== draftablePlayers.length) {
-        setError(`There's a mismatch in assigned players. Expected ${draftablePlayers.length} unique players, found ${allAssignedPlayerIdsInSave.size}.`);
-        return;
     }
 
     onSave(finalTeams);
@@ -149,103 +138,82 @@ const ManualTeamEditorModal: React.FC<ManualTeamEditorModalProps> = ({
 
   if (!isOpen) return null;
 
+  // This function is not strictly necessary anymore if we use draftablePlayers directly in map,
+  // but keeping it in case future filtering logic is needed for a slot.
+  const getSelectablePlayersForSlot = (currentTeamIndex: number, currentSlotIndex: number) => {
+    return draftablePlayers; 
+  };
+
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center p-2 z-[60] overflow-y-auto">
-      <div className="bg-slate-800 p-4 sm:p-6 rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col">
-        <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-sky-400 text-center">Manual Team Editor</h2>
-        <p className="text-sm text-slate-400 text-center mb-4">Assign players to teams. Teams can have any number of players.</p>
+      <div className="bg-slate-800 p-4 sm:p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] flex flex-col">
+        <h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-sky-400 text-center">Manual Team Editor</h2>
         
-        <div className="flex-grow overflow-y-auto pr-2 space-y-4 mb-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Teams Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-300 border-b border-slate-600 pb-2">Teams</h3>
-              {editedTeams.map((team, teamIndex) => (
-                <div key={team.name} className="p-4 bg-slate-700/70 rounded-lg border border-slate-600">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-semibold text-slate-100">{team.name}</h4>
-                    <span className="text-xs bg-slate-600 px-2 py-1 rounded text-slate-300">
-                      {team.players.length} player{team.players.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
+        <div className="flex-grow overflow-y-auto pr-2 space-y-6 mb-4">
+          {editedTeams.map((team, teamIndex) => (
+            <div key={team.name} className="p-3 sm:p-4 bg-slate-700/70 rounded-lg">
+              <h3 className="text-xl font-semibold mb-3 text-center text-slate-200 border-b border-slate-600 pb-2">{team.name}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {team.players.map((playerInSlot, slotIndex) => {
+                  const selectablePlayers = getSelectablePlayersForSlot(teamIndex, slotIndex);
 
-                  {team.players.length === 0 ? (
-                    <p className="text-sm text-slate-400 italic">No players assigned yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {team.players.map((player) => (
-                        <div key={player.id} className="p-2 bg-slate-600/50 rounded flex items-center justify-between gap-2">
-                          <div className="flex-grow">
-                            <p className="text-sm text-slate-100 font-medium">{player.name}</p>
-                            <p className="text-xs text-slate-400">Rating: {player.rating}</p>
-                          </div>
+                  return (
+                    <div key={slotIndex} className="p-2 bg-slate-600/50 rounded space-y-2 border border-slate-500/50 relative">
+                      <button
+                        onClick={() => handleRemovePlayerSlot(teamIndex, slotIndex)}
+                        className="absolute top-1 right-1 text-red-400 hover:text-red-300 text-xs font-bold"
+                        title="Remove player slot"
+                      >
+                        ✕
+                      </button>
+                      <p className="text-xs text-slate-400 font-medium">Slot {slotIndex + 1}</p>
+                      <div>
+                        <label className="block text-xs text-slate-300 mb-0.5">Player</label>
+                        <select
+                          value={playerInSlot?.id || ''}
+                          onChange={(e) => handlePlayerChange(teamIndex, slotIndex, e.target.value)}
+                          className="w-full p-2 bg-slate-500 border border-slate-400 rounded-md text-sm text-slate-100 focus:ring-sky-500 focus:border-sky-500"
+                          aria-label={`Player for ${team.name} slot ${slotIndex + 1}`}
+                        >
+                          <option value="" disabled>{playerInSlot ? 'Change Player' : 'Select Player'}</option>
+                          {selectablePlayers.map(p => {
+                            const suffix = assignedPlayerIds.has(p.id) ? "" : " (unselected)";
+                            const displayName = (playerInSlot?.id === p.id) ? p.name : `${p.name}${suffix}`;
+                             return (
+                                <option key={p.id} value={p.id}>{displayName} (R: {p.rating})</option>
+                             );
+                          })}
+                        </select>
+                      </div>
+                      {playerInSlot && (
+                        <div>
+                          <label className="block text-xs text-slate-300 mb-0.5">Assigned Position</label>
                           <select
-                            value={player.assignedPositionOnTeam}
-                            onChange={(e) => handlePositionChange(teamIndex, player.id, e.target.value as PlayerPosition)}
-                            className="px-2 py-1 bg-slate-500 border border-slate-400 rounded text-xs text-slate-100 focus:ring-sky-500 focus:border-sky-500"
-                            aria-label={`Position for ${player.name}`}
+                            value={playerInSlot.assignedPositionOnTeam}
+                            onChange={(e) => handlePositionChange(teamIndex, slotIndex, e.target.value as PlayerPosition)}
+                            className="w-full p-2 bg-slate-500 border border-slate-400 rounded-md text-sm text-slate-100 focus:ring-sky-500 focus:border-sky-500"
+                            aria-label={`Position for ${playerInSlot.name} in ${team.name}`}
                           >
                             {Object.values(PlayerPosition).map(pos => (
                               <option key={pos} value={pos}>{pos}</option>
                             ))}
                           </select>
-                          <button
-                            onClick={() => handleRemovePlayerFromTeam(teamIndex, player.id)}
-                            className="px-2 py-1 bg-red-600/70 hover:bg-red-600 text-white text-xs rounded transition"
-                            title={`Remove ${player.name} from ${team.name}`}
-                          >
-                            ✕
-                          </button>
                         </div>
-                      ))}
+                      )}
+                      {!playerInSlot && <div className="h-[52px]"></div>}
                     </div>
-                  )}
-                </div>
-              ))}
+                  );
+                })}
+                <button
+                  onClick={() => handleAddPlayerSlot(teamIndex)}
+                  className="p-2 bg-slate-600/30 rounded border-2 border-dashed border-slate-500/50 hover:border-sky-500/50 hover:bg-slate-600/50 transition text-slate-400 hover:text-sky-400 text-sm font-medium"
+                >
+                  + Add Player
+                </button>
+              </div>
             </div>
-
-            {/* Unassigned Players Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-300 border-b border-slate-600 pb-2">Unassigned Players</h3>
-              {unassignedPlayers.length === 0 ? (
-                <p className="text-sm text-slate-400 italic text-center py-8 bg-slate-700/50 rounded">
-                  All players assigned! ✓
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {unassignedPlayers.map((player) => (
-                    <div key={player.id} className="p-3 bg-slate-700/50 rounded border border-slate-600 flex items-center justify-between gap-2">
-                      <div className="flex-grow">
-                        <p className="text-sm text-slate-100 font-medium">{player.name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-xs text-slate-400">Rating: {player.rating}</p>
-                          <div className="flex gap-1">
-                            {player.positions.map(pos => (
-                              <span key={pos} className="text-xs bg-slate-600 px-1.5 py-0.5 rounded text-slate-300">
-                                {pos}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        {editedTeams.map((team, teamIndex) => (
-                          <button
-                            key={team.name}
-                            onClick={() => handleAddPlayerToTeam(teamIndex, player.id)}
-                            className="px-2 py-1 bg-sky-600/70 hover:bg-sky-600 text-white text-xs rounded transition whitespace-nowrap"
-                            title={`Add ${player.name} to ${team.name}`}
-                          >
-                            Add to {team.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
 
         {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
