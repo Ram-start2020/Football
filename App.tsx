@@ -9,6 +9,7 @@ import StarRating from './components/StarRating';
 import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
 import AuthModal from './components/AuthModal';
+import SFLLogo from './components/SFLLogo';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database } from './lib/database.types';
@@ -722,27 +723,27 @@ const App: React.FC = () => {
   });
 
   const getButtonClass = (variant: 'primary' | 'secondary' | 'danger' | 'warning' | 'success' | 'info' | 'neutral' | 'edit', disabled?: boolean, size: 'normal' | 'small' = 'normal') => {
-    let base = "font-semibold rounded-lg shadow-md transition duration-150 transform";
+    let base = "font-semibold rounded-full shadow-lg transition duration-200 transform";
      if (size === 'small') {
-        base += " py-1.5 px-3 text-xs"; 
+        base += " py-2 px-4 text-sm"; 
     } else {
-        base += " w-full py-3 px-6";
+        base += " w-full py-4 px-8 text-base";
     }
 
     if (disabled) {
         base += " opacity-50 cursor-not-allowed";
     } else {
-        base += " hover:shadow-lg hover:scale-105";
+        base += " hover:shadow-xl hover:scale-105";
     }
     
     switch(variant) {
-      case 'primary': return `${base} bg-sky-600 ${!disabled && 'hover:bg-sky-500'} text-white`;
-      case 'success': return `${base} bg-emerald-600 ${!disabled && 'hover:bg-emerald-500'} text-white`;
-      case 'warning': return `${base} bg-amber-600 ${!disabled && 'hover:bg-amber-500'} text-white`;
-      case 'danger': return `${base} bg-red-600 ${!disabled && 'hover:bg-red-500'} text-white`;
-      case 'info': return `${base} bg-purple-600 ${!disabled && 'hover:bg-purple-500'} text-white`;
-      case 'edit': return `${base} bg-blue-600 ${!disabled && 'hover:bg-blue-500'} text-white`;
-      default: return `${base} bg-slate-600 ${!disabled && 'hover:bg-slate-500'} text-white`;
+      case 'primary': return `${base} bg-gradient-to-r from-sky-600 to-emerald-600 ${!disabled && 'hover:from-sky-500 hover:to-emerald-500'} text-white`;
+      case 'success': return `${base} bg-gradient-to-r from-emerald-600 to-green-600 ${!disabled && 'hover:from-emerald-500 hover:to-green-500'} text-white`;
+      case 'warning': return `${base} bg-gradient-to-r from-amber-600 to-orange-600 ${!disabled && 'hover:from-amber-500 hover:to-orange-500'} text-white`;
+      case 'danger': return `${base} bg-gradient-to-r from-red-600 to-red-700 ${!disabled && 'hover:from-red-500 hover:to-red-600'} text-white`;
+      case 'info': return `${base} bg-gradient-to-r from-purple-600 to-indigo-600 ${!disabled && 'hover:from-purple-500 hover:to-indigo-500'} text-white`;
+      case 'edit': return `${base} bg-gradient-to-r from-blue-600 to-sky-600 ${!disabled && 'hover:from-blue-500 hover:to-sky-500'} text-white`;
+      default: return `${base} bg-gradient-to-r from-slate-600 to-slate-700 ${!disabled && 'hover:from-slate-500 hover:to-slate-600'} text-white`;
     }
   }
   
@@ -753,15 +754,16 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-        <div className="flex flex-col justify-center items-center min-h-screen bg-slate-900 text-slate-100">
-            <h1 className="text-4xl font-bold text-sky-400 mb-4 animate-pulse">Soccer Team Balancer</h1>
+        <div className="flex flex-col justify-center items-center min-h-screen football-pitch-pattern text-slate-100">
+            <SFLLogo size="lg" className="mb-4" />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent mb-4 animate-pulse">Saturday Football League</h1>
             <p className="text-lg text-slate-400">Loading player data...</p>
         </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-8">
+    <div className="min-h-screen football-pitch-pattern text-slate-100 p-4 md:p-8">
       {notification && (
         <div className={`fixed top-5 right-5 p-4 rounded-md shadow-lg text-white text-sm z-[100] animate-fadeInOutToast
           ${notification.type === 'success' ? 'bg-green-600' : notification.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}>
@@ -777,20 +779,41 @@ const App: React.FC = () => {
         }
         .animate-fadeInOutToast { animation: fadeInOutToast 3.5s ease-in-out forwards; }
         .table-responsive-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .football-pitch-pattern {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+          background-image: 
+            repeating-linear-gradient(
+              45deg,
+              transparent,
+              transparent 10px,
+              rgba(16, 185, 129, 0.03) 10px,
+              rgba(16, 185, 129, 0.03) 20px
+            );
+        }
         @media (max-width: 768px) {
-            .player-roster-table th, .player-roster-table td { font-size: 0.8rem; padding: 0.5rem 0.4rem; }
-            .player-roster-table .action-button { padding: 0.25rem 0.5rem; font-size: 0.7rem; }
+            .player-roster-table th, .player-roster-table td { font-size: 0.8rem; padding: 0.75rem 0.5rem; }
+            .player-roster-table .action-button { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
             .player-roster-table .star-column { min-width: 80px; } 
             .player-roster-table .positions-column { min-width: 120px; } 
             .player-roster-table .name-column { min-width: 100px; }
             .player-roster-table .draft-checkbox-column { min-width: 60px; }
             .player-roster-table .player-number-column { min-width: 50px; }
             .player-roster-table .points-column { min-width: 60px; }
+            .player-roster-table th, .player-roster-table td { padding: 0.75rem 0.5rem; }
+        }
+        @media (max-width: 640px) {
+            .player-roster-table th, .player-roster-table td { font-size: 0.75rem; padding: 0.5rem 0.4rem; }
+            .player-roster-table .action-button { padding: 0.4rem 0.6rem; font-size: 0.7rem; }
+            .player-roster-table .jersey-number { width: 2rem; height: 2rem; font-size: 0.7rem; }
         }
         .player-roster-table .positions-column .flex > span:not(:last-child) { margin-right: 0.35rem; } 
         .player-roster-table tr.excluded-from-draft td:not(.actions-column):not(.draft-checkbox-cell) { opacity: 0.6; } 
         .player-roster-table tr.excluded-from-draft .draft-checkbox-cell { opacity: 1; } 
-        .draft-checkbox { width: 1.15rem; height: 1.15rem; }
+        .draft-checkbox { width: 1.25rem; height: 1.25rem; }
+        .jersey-number {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+        }
       `}</style>
 
       <header className="mb-8 text-center relative">
@@ -798,23 +821,31 @@ const App: React.FC = () => {
             {isAdmin ? (
                 <div className="flex items-center space-x-3 bg-slate-800/50 p-2 rounded-lg">
                     <span className="text-sm text-slate-300 hidden sm:block">{session.user.email}</span>
-                    <button onClick={handleLogout} className="px-3 py-1.5 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded-md transition">
+                    <button onClick={handleLogout} className="px-3 py-1.5 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded-full transition">
                         Logout
                     </button>
                 </div>
             ) : (
-                <button onClick={handleOpenLoginModal} className="px-4 py-2 text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-lg shadow-md transition transform hover:scale-105">
+                <button onClick={handleOpenLoginModal} className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 text-white rounded-full shadow-md transition transform hover:scale-105">
                     Admin Login
                 </button>
             )}
         </div>
-        <h1 className="text-4xl font-bold text-sky-400">Soccer Team Balancer</h1>
-        <p className="text-slate-400 mt-2 text-lg">Manage players, generate fair teams, and track your game day stats!</p>
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <SFLLogo size="lg" />
+          <div className="text-left">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">Saturday Football League</h1>
+            <p className="text-slate-400 mt-1 text-base md:text-lg">Manage players, generate fair teams, and track your game day stats!</p>
+          </div>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8">
         <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary', !isAdmin)} disabled={!isAdmin} title={!isAdmin ? 'Admin login required' : 'Add a new player'}>
-          Add New Player
+          <span className="flex items-center justify-center gap-2">
+            <span>➕</span>
+            <span>Add New Player</span>
+          </span>
         </button>
 
 
@@ -826,7 +857,10 @@ const App: React.FC = () => {
               disabled={!canGenerateTeams}
               title={!canGenerateTeams ? `Select at least 3 players for draft` : 'Generate balanced teams'}
             >
-              Generate Teams
+              <span className="flex items-center justify-center gap-2">
+                <span>⚽</span>
+                <span>Generate Teams</span>
+              </span>
             </button>
             <span className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs px-2 py-0.5 rounded-full
                              ${participatingPlayerCount >= 3 ? 'bg-emerald-500/80' : 'bg-amber-500/80'} text-white`}>
@@ -841,7 +875,10 @@ const App: React.FC = () => {
                 disabled={!canManuallyEdit}
                 title={!canManuallyEdit ? `Select at least 3 players for draft first` : 'Manually create teams'}
             >
-                Manual Edit Teams
+                <span className="flex items-center justify-center gap-2">
+                    <span>🥅</span>
+                    <span>Manual Edit Teams</span>
+                </span>
             </button>
         )}
 
@@ -849,17 +886,26 @@ const App: React.FC = () => {
         {teams.length > 0 && !teamsConfirmed && (
           <>
             <button onClick={handleConfirmTeams} className={getButtonClass('success')}>
-              Confirm Teams
+              <span className="flex items-center justify-center gap-2">
+                <span>✅</span>
+                <span>Confirm Teams</span>
+              </span>
             </button>
             <button onClick={generateTeams} className={getButtonClass('warning')}>
-              Regenerate Teams
+              <span className="flex items-center justify-center gap-2">
+                <span>🔄</span>
+                <span>Regenerate Teams</span>
+              </span>
             </button>
              <button
                 onClick={handleOpenManualEdit}
                 className={getButtonClass('warning')}
                 title={'Manually edit proposed teams'}
             >
-                Edit Proposed Teams
+                <span className="flex items-center justify-center gap-2">
+                    <span>✏️</span>
+                    <span>Edit Proposed Teams</span>
+                </span>
             </button>
           </>
         )}
@@ -871,13 +917,19 @@ const App: React.FC = () => {
             disabled={matches.length === 0 || !isAdmin}
             title={!isAdmin ? "Admin login required" : matches.length === 0 ? "Add matches first" : "Finalize and update stats"}
             >
-             Finalize Game Day
+             <span className="flex items-center justify-center gap-2">
+                <span>🏆</span>
+                <span>Finalize Game Day</span>
+             </span>
             </button>
         )}
         
         {teams.length > 0 && (
            <button onClick={clearTeamsAndMatches} className={getButtonClass('danger', false, 'normal')}>
-             {allMatchesFinalized || teamsConfirmed ? 'Clear & New Game Day' : 'Clear Teams'}
+             <span className="flex items-center justify-center gap-2">
+                <span>🗑️</span>
+                <span>{allMatchesFinalized || teamsConfirmed ? 'Clear & New Game Day' : 'Clear Teams'}</span>
+             </span>
            </button>
         )}
       </div>
@@ -1046,12 +1098,18 @@ const App: React.FC = () => {
         </section>
       )}
 
-      <section className="bg-slate-800/50 p-4 sm:p-6 rounded-xl shadow-xl">
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-semibold text-sky-300">Player Roster ({players.length})</h2>
+      <section className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl border border-emerald-500/20">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div className="flex items-center gap-3">
+                <span className="text-3xl">⚽</span>
+                <div>
+                    <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">Player Roster</h2>
+                    <p className="text-slate-400 text-sm">Total: {players.length} players</p>
+                </div>
+            </div>
             {teams.length === 0 && (
-                <span className={`text-sm px-3 py-1 rounded-full
-                                 ${participatingPlayerCount >= 3 ? 'bg-emerald-600' : 'bg-amber-600'} text-white shadow-md`}>
+                <span className={`text-sm px-4 py-2 rounded-full font-semibold shadow-lg
+                                 ${participatingPlayerCount >= 3 ? 'bg-gradient-to-r from-emerald-600 to-green-600' : 'bg-gradient-to-r from-amber-600 to-orange-600'} text-white`}>
                     Selected for Draft: {participatingPlayerCount}
                 </span>
             )}
@@ -1060,26 +1118,26 @@ const App: React.FC = () => {
         {players.length === 0 ? (
           <p className="text-center text-slate-400 py-4">No players. Add some to get started!</p>
         ) : (
-          <div className="table-responsive-wrapper rounded-lg border border-slate-700">
+          <div className="table-responsive-wrapper rounded-xl border-2 border-emerald-500/30 overflow-hidden shadow-xl">
             <table className="w-full min-w-max text-left player-roster-table">
-              <thead className="bg-slate-700/80">
+              <thead className="bg-gradient-to-r from-emerald-700 to-emerald-800">
                 <tr>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 draft-checkbox-column text-center">Draft?</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center player-number-column">#</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 name-column">Name</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center points-column">Points</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Wins/Losses</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center">Goals/Assists</th>
-                  <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center positions-column">Positions</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white draft-checkbox-column text-center">Draft?</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white text-center player-number-column">#</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white name-column">Name</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white text-center points-column">Points</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white text-center">Wins/Losses</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white text-center">Goals/Assists</th>
+                  <th scope="col" className="p-4 text-sm font-bold text-white text-center positions-column">Positions</th>
                   {isAdmin && (
                     <>
-                      <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-center star-column">Rating</th>
-                      <th scope="col" className="p-3 text-sm font-semibold text-slate-200 text-right actions-column">Actions</th>
+                      <th scope="col" className="p-4 text-sm font-bold text-white text-center star-column">Rating</th>
+                      <th scope="col" className="p-4 text-sm font-bold text-white text-right actions-column">Actions</th>
                     </>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-emerald-500/20 bg-slate-800/50">
                 {sortedPlayers.map(player => {
                   const draws = player.gamesPlayed - player.wins - player.losses;
                   const points = player.wins * 3 + draws * 1;
@@ -1087,12 +1145,12 @@ const App: React.FC = () => {
                   return (
                   <tr 
                     key={player.id} 
-                    className={`transition-colors duration-150 ${player.isIncludedInDraft ? 'hover:bg-slate-700/40' : 'excluded-from-draft hover:bg-slate-700/30'}`}
+                    className={`transition-all duration-200 ${player.isIncludedInDraft ? 'hover:bg-emerald-500/10' : 'excluded-from-draft hover:bg-slate-700/30'}`}
                   >
-                    <td className="p-3 text-center">
+                    <td className="p-4 text-center">
                         <input 
                             type="checkbox"
-                            className="draft-checkbox accent-sky-500 bg-slate-600 border-slate-500 rounded focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="draft-checkbox accent-emerald-500 bg-slate-600 border-slate-500 rounded focus:ring-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed w-5 h-5"
                             checked={player.isIncludedInDraft}
                             onChange={() => handleTogglePlayerDraftInclusion(player.id)}
                             disabled={teams.length > 0}
@@ -1100,32 +1158,36 @@ const App: React.FC = () => {
                             title={teams.length > 0 ? "Clear teams to change draft status" : (player.isIncludedInDraft ? "Exclude from draft" : "Include in draft")}
                         />
                     </td>
-                    <td className="p-3 text-slate-200 text-center">{player.player_num || '-'}</td>
-                    <td className="p-3 text-slate-200 name-column whitespace-nowrap">{player.name}</td>
-                    <td className="p-3 text-slate-200 text-center font-medium">{points}</td>
-                    <td className="p-3 text-center font-medium">
+                    <td className="p-4 text-center">
+                        <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow-lg">
+                            {player.player_num || '-'}
+                        </span>
+                    </td>
+                    <td className="p-4 text-slate-100 name-column whitespace-nowrap font-semibold">{player.name}</td>
+                    <td className="p-4 text-center font-bold text-lg text-emerald-400">{points}</td>
+                    <td className="p-4 text-center font-semibold">
                         <span className="text-green-400">{player.wins}</span>
-                        <span className="text-slate-500">/</span>
+                        <span className="text-slate-500 mx-1">/</span>
                         <span className="text-red-400">{player.losses}</span>
                     </td>
-                    <td className="p-3 text-center font-medium">
+                    <td className="p-4 text-center font-semibold">
                         <span className="text-sky-400">{player.goals}</span>
-                        <span className="text-slate-500">/</span>
+                        <span className="text-slate-500 mx-1">/</span>
                         <span className="text-purple-400">{player.assists}</span>
                     </td>
-                    <td className="p-3 text-center positions-column">
+                    <td className="p-4 text-center positions-column">
                       <div className="flex justify-center items-center flex-wrap gap-1">
                         {player.positions.map(pos => <PositionBadge key={pos} position={pos} />)}
                       </div>
                     </td>
                     {isAdmin && (
                       <>
-                        <td className="p-3 star-column">
+                        <td className="p-4 star-column">
                           <div className="flex justify-center">
                             <StarRating rating={player.rating} size="sm" />
                           </div>
                         </td>
-                        <td className="p-3 text-right actions-column">
+                        <td className="p-4 text-right actions-column">
                           <div className="flex justify-end space-x-2">
                              <button
                                 onClick={() => handleOpenEditPlayerModal(player)}
