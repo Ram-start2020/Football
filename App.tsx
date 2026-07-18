@@ -124,6 +124,7 @@ const App: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [gameDayStats, setGameDayStats] = useState<any>([]);
   const isAdmin = !!session;
+  const tableRef = React.useRef<HTMLDivElement>(null);
 
 
   const participatingPlayerCount = useMemo(() => {
@@ -144,6 +145,31 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  useEffect(() => {
+    const setMobileTableScroll = () => {
+      if (tableRef.current && window.innerWidth < 768) {
+        const draftCheckboxColumn = tableRef.current.querySelector('.draft-checkbox-column');
+        const playerNumberColumn = tableRef.current.querySelector('.player-number-column');
+        
+        let scrollOffset = 0;
+        if (draftCheckboxColumn) {
+          scrollOffset += draftCheckboxColumn.getBoundingClientRect().width;
+        }
+        if (playerNumberColumn) {
+          scrollOffset += playerNumberColumn.getBoundingClientRect().width;
+        }
+        
+        if (scrollOffset > 0) {
+          tableRef.current.scrollLeft = scrollOffset;
+        }
+      }
+    };
+
+    setMobileTableScroll();
+    window.addEventListener('resize', setMobileTableScroll);
+    return () => window.removeEventListener('resize', setMobileTableScroll);
+  }, [players.length]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1118,7 +1144,7 @@ const App: React.FC = () => {
         {players.length === 0 ? (
           <p className="text-center text-slate-400 py-4">No players. Add some to get started!</p>
         ) : (
-          <div className="table-responsive-wrapper rounded-xl border-2 border-emerald-500/30 overflow-hidden shadow-xl">
+          <div ref={tableRef} className="table-responsive-wrapper rounded-xl border-2 border-emerald-500/30 overflow-hidden shadow-xl">
             <table className="w-full min-w-max text-left player-roster-table">
               <thead className="bg-gradient-to-r from-emerald-700 to-emerald-800">
                 <tr>
@@ -1221,7 +1247,7 @@ const App: React.FC = () => {
       </section>
 
       <footer className="mt-12 pt-8 border-t border-slate-700 text-center">
-        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Soccer Team Balancer. App Version 4.0 - Flexible Team Sizes</p>
+        <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} Saturday Football League. App Version 5.0 - Modern Football-Themed Redesign</p>
       </footer>
       <Analytics />
     </div>
