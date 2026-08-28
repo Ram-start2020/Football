@@ -10,6 +10,7 @@ import PositionBadge from './components/PositionBadge';
 import ManualTeamEditorModal from './components/ManualTeamEditorModal';
 import AuthModal from './components/AuthModal';
 import SFLLogo from './components/SFLLogo';
+import DashboardStats from './components/DashboardStats';
 import { supabase } from './lib/supabaseClient'; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database } from './lib/database.types';
@@ -865,6 +866,8 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
+
+      <DashboardStats players={players} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8">
         <button onClick={handleOpenAddPlayerModal} className={getButtonClass('primary', !isAdmin)} disabled={!isAdmin} title={!isAdmin ? 'Admin login required' : 'Add a new player'}>
