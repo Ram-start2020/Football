@@ -28,11 +28,12 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ players }) => {
   const getTopPlayers = (
     players: Player[],
     getValue: (p: Player) => number,
-    limit: number = 4
+    limit: number = 4,
+    minGames?: number
   ): Array<{ player: Player; value: number }> => {
     return [...players]
       .map(player => ({ player, value: getValue(player) }))
-      .filter(item => item.value > 0)
+      .filter(item => item.value > 0 && (minGames === undefined || item.player.gamesPlayed >= minGames))
       .sort((a, b) => b.value - a.value)
       .slice(0, limit);
   };
@@ -72,7 +73,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ players }) => {
     },
     {
       title: 'Goals Per Game',
-      players: getTopPlayers(players, calculateGoalsPerGame).map(item => ({
+      players: getTopPlayers(players, calculateGoalsPerGame, 4, 20).map(item => ({
         player: item.player,
         value: item.value.toFixed(2)
       })),
@@ -80,7 +81,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ players }) => {
     },
     {
       title: 'Assists Per Game',
-      players: getTopPlayers(players, calculateAssistsPerGame).map(item => ({
+      players: getTopPlayers(players, calculateAssistsPerGame, 4, 20).map(item => ({
         player: item.player,
         value: item.value.toFixed(2)
       })),
